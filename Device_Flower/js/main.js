@@ -29,8 +29,9 @@
     const touchOn = document.body.classList.contains('touch-on');
     const portrait = vw < vh;
     // Leave room for the on-screen buttons: below the game in portrait, beside it in landscape.
+    const gutter = 32; // 16px on each side
     const availH = touchOn && portrait ? vh * 0.62 : vh;
-    const availW = touchOn && !portrait ? Math.max(vw * 0.55, vw - 440) : vw;
+    const availW = touchOn && !portrait ? Math.max(vw * 0.55, vw - 440) : vw - gutter;
     let scale = Math.min(availW / DF.W, availH / DF.H);
     if (scale >= 1) scale = Math.max(1, Math.floor(scale * 4) / 4);
     canvas.style.width = Math.floor(DF.W * scale) + 'px';
