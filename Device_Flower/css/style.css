@@ -1,0 +1,117 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#game {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #000;
+  outline: none;
+}
+
+#error {
+  display: none;
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  margin: 0;
+  padding: 10px 12px;
+  background: #2a0000;
+  color: #ffb0b0;
+  border: 1px solid #ff4040;
+  font: 13px/1.4 monospace;
+  white-space: pre-wrap;
+  z-index: 10;
+}
+
+/* ---- touch controls ---------------------------------------------------- */
+.touch {
+  display: none;
+}
+body.touch-on .touch {
+  display: block;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 230px;
+  z-index: 5;
+  pointer-events: none;
+}
+.touch button {
+  pointer-events: auto;
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  background: rgba(40, 20, 50, 0.55);
+  color: #fff;
+  font: bold 22px monospace;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.touch button.on {
+  background: rgba(255, 160, 32, 0.7);
+}
+.touch .dpad {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  width: 196px;
+  height: 196px;
+}
+.touch .t-up {
+  left: 66px;
+  top: 0;
+}
+.touch .t-down {
+  left: 66px;
+  top: 132px;
+}
+.touch .t-left {
+  left: 0;
+  top: 66px;
+}
+.touch .t-right {
+  left: 132px;
+  top: 66px;
+}
+.touch .abtns {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: 160px;
+  height: 160px;
+}
+.touch .t-z {
+  right: 0;
+  top: 20px;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  border-color: #ffd020;
+}
+.touch .t-x {
+  left: 0;
+  top: 84px;
+  border-radius: 50%;
+}

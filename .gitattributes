@@ -1,0 +1,3 @@
+# Generated base64 asset bundles: keep them out of diffs and language stats.
+Device_Flower/js/bundle/*.js linguist-generated=true -diff
+Device_Flower/assets/atlas.json linguist-generated=true
