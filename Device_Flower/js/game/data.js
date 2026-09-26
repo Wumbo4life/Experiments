@@ -131,7 +131,7 @@
       cap: 10,
       allies: [],
       acts: ['posey', 'poseyz'],
-      waves: ['petals', 'jarona', 'vines'],
+      waves: ['bamboo', 'jarona', 'petals'],
       check: ['* FLOWERY - AT 99 DF 99\n* Asgore\'s self-proclaimed best friend.', '* His stats seem... suspiciously round.\n* (He looks like he wants to see a good [c:yellow]POSE[/c].)'],
       flavor: [
         '* FLOWERY is striking a pose.\n* The sunset lights him perfectly.',
@@ -220,7 +220,7 @@
       cap: 50,
       allies: ['yellow', 'blue'],
       acts: ['justice'],
-      waves: ['showdown', 'ballet', 'yellowblue'],
+      waves: ['showdown', 'butterflies', 'ballet'],
       check: ['* FLOWERY - AT 99 DF 99\n* YELLOW and BLUE stand guard.', '* Only [c:yellow]JUSTICE[/c] will do here.\n* (It costs 100% TP. Graze and parry to build it!)'],
       flavor: [
         '* YELLOW is polishing a badge.\n* BLUE is stretching.',
@@ -246,12 +246,12 @@
       cap: 50,
       allies: [],
       acts: ['susieidea'],
-      waves: ['omega1', 'omega2', 'omega3'],
-      check: ['* OMEGA FLOWERY - AT ??? DF ???\n* All seven colors, shining at once.', '* Susie is itching to try something.\n* (Her [c:yellow]IDEA[/c] needs 40% TP.)'],
+      waves: ['bamboo_hard', 'jarona3', 'prism'],
+      check: ['* FLOWERY - AT 99 DF 99\n* No friends left to lean on.\n* He is not backing down.', '* Susie is itching to try something.\n* (Her [c:yellow]IDEA[/c] needs 40% TP.)'],
       flavor: [
-        '* OMEGA FLOWERY shines in every color.',
+        "* FLOWERY is breathing hard.\n* His smile hasn't moved an inch.",
         '* Susie cracks her knuckles.',
-        '* The Fountain gleams far above you.',
+        '* The Fountain gushes on the roof above.',
       ],
       talk: [
         [{ who: 'flowery', text: 'Lend me your power!', voice: 'vc_lend_me_your_power' }],

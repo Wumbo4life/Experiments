@@ -68,18 +68,20 @@
     let dt = (now - last) / 1000;
     last = now;
     if (dt > 0.25) dt = 0.25;
-    acc += dt;
+    const speed = (DF.debug && DF.debug.speed) || 1;
+    acc += dt * speed;
     let steps = 0;
-    while (acc >= DF.STEP && steps < 8) {
+    while (acc >= DF.STEP && steps < 8 * speed) {
       step(DF.STEP);
       acc -= DF.STEP;
       steps++;
     }
-    if (steps === 8) acc = 0;
+    if (steps === 8 * speed) acc = 0;
     render();
     requestAnimationFrame(frame);
   }
   function step(dt) {
+    if (DF.debug && DF.debug.onStep) DF.debug.onStep();
     DF.Input.beginStep();
     DF.time += dt;
     DF.Music.update();
@@ -166,6 +168,30 @@
       bt.fade = 0;
       bt.startClimb = true;
       bt.scripts.run(DF.Cutscenes.climb(bt));
+    },
+    finale() {
+      const bt = new DF.Battle({ phase: 6, retry: true, tp: 100, fightLocked: true });
+      DF.setScene(bt);
+      bt.scripts.clear();
+      bt.fade = 0;
+      bt.showUI(false);
+      DF.Music.play('battle', { section: 'chorus3' });
+      bt.scripts.run(
+        (function* () {
+          bt.climb = new DF.Finale(bt);
+          yield () => bt.climb.done;
+          if (bt.climb.failed) {
+            bt.climb = null;
+            yield* bt.gameOver();
+            return;
+          }
+          bt.ended = true;
+          DF.setScene(new DF.EndingScene(bt.stats));
+        })()
+      );
+    },
+    ending() {
+      DF.setScene(new DF.EndingScene({ time: 900, turns: 24, parries: 14, perfects: 5, breaks: 11, hits: 6, tpGained: 320, retries: 0 }));
     },
   };
 })();

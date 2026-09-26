@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Extract the sprites, sounds and fonts Device_Flower needs from the two
-fan-engine repositories it borrows from, and pack them into ./assets.
+"""Extract the sprites, sounds and fonts Device_Flower needs from the three
+fan projects it borrows from, and pack them into ./assets.
 
-    python3 tools/extract_assets.py --kristal PATH --featherfall PATH
+    python3 tools/extract_assets.py --kristal PATH --featherfall PATH --platformer PATH
 
   * Kristal      https://github.com/KristalTeam/Kristal        (party, UI, SFX, fonts)
   * Featherfall  https://github.com/ThePlasticPotato/Featherfall (Flowery, the Flowers, Ch5 SFX)
+  * deltarun-episode-5  https://github.com/Woganog/deltarun-episode-5
+                 (Omega Flowery charge, Kris clash/climb frames for the finale)
 
 Outputs (all relative to the Device_Flower folder):
   assets/atlas.png      every sprite frame packed into one sheet
@@ -143,6 +145,18 @@ SEQUENCES = [
     ("F", "party/susie/platform", "attack_", "splat/attack"),
     ("F", "party/susie/platform", "idle_", "splat/idle"),
     ("F", "party/ralsei/platform", "fall_", "rplat/fall"),
+    ("F", "party/ralsei/platform", "run_", "rplat/run"),
+    ("F", "party/ralsei/platform", "idle_", "rplat/idle"),
+    ("F", "party/susie/platform", "run_", "splat/run"),
+    ("F", "party/kris/platform", "run_", "kplat/run"),
+    ("F", "party/kris/platform", "slash_ground_", "kplat/slashg"),
+    ("F", "party/kris/platform", "halt_", "kplat/halt"),
+    ("F", "party/kris/platform", "crouch_", "kplat/crouch"),
+    # ---- finale sprites from the Godot platforming recreation -----------------
+    ("W", "obj/player/kris-sprites/spr_kris_plat_clash", "spr_kris_plat_clash_", "kplat/clash"),
+    ("W", "obj/player/kris-sprites/spr_kris_plat_climb", "spr_kris_plat_climb_", "kplat/climb"),
+    ("W", "obj/player/kris-sprites/spr_kris_plat_run_heart", "spr_kris_plat_run_heart_", "kplat/runheart"),
+    ("W", "obj/flowery/spr_omegaflowery_jarona", "spr_omegaflowery_jarona_", "flowery/omegajarona"),
 ]
 
 SINGLES = [
@@ -191,6 +205,9 @@ SINGLES = [
     ("F", "party/kris/platform/hurt_air_1.png", "kplat/hurt_1"),
     ("F", "party/ralsei/platform/splat_1.png", "rplat/splat_1"),
     ("F", "party/ralsei/platform/falling_1.png", "rplat/falling_1"),
+    ("F", "party/kris/platform/hurt_ground_1.png", "kplat/hurtg_1"),
+    ("W", "obj/flowery/spr_flowery_head_tilt_down.png", "flowery/headdown_1"),
+    ("W", "obj/player/kris-sprites/spr_kris_plat_pose.png", "kplat/pose_1"),
 ]
 
 # Kristal icon sets (head + per-action icons shown in the action box).
@@ -367,10 +384,12 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--kristal", required=True, help="path to a Kristal checkout")
     ap.add_argument("--featherfall", required=True, help="path to a Featherfall checkout")
+    ap.add_argument("--platformer", required=True, help="path to a deltarun-episode-5 checkout")
     args = ap.parse_args()
     roots = {
         "K": os.path.join(args.kristal, "assets", "sprites"),
         "F": os.path.join(args.featherfall, "assets", "sprites"),
+        "W": args.platformer,
     }
     sound_roots = {
         "K": os.path.join(args.kristal, "assets", KSND),

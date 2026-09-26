@@ -34,7 +34,7 @@
       this.phaseTurn = 0;
       this.enemyTurns = 0; // enemy turns taken in the current phase
       this.stats = Object.assign({ turns: 0, hits: 0, damageTaken: 0, parries: 0, perfects: 0, breaks: 0, tpGained: 0, time: 0, retries: 0 }, opts.stats || {});
-      this.arena = new DF.Arena(320, 172, 256, 136);
+      this.arena = new DF.Arena(320, 176, 344, 196);
       this.soul = new DF.OrangeSoul();
       this.soul.visible = false;
       this.wave = null;
@@ -55,7 +55,7 @@
       this.lastBtn = {};
       this.bgT = 0;
       this.fade = opts.retry ? 1 : 1;
-      this.omega = this.phase >= 6;
+      this.omega = false; // OMEGA FLOWERY only appears at the top of the climb
       this.climb = null;
       this.ended = false;
       this.gameOverFlag = false;
@@ -64,7 +64,6 @@
       this.layoutParty();
       this.placeAllies(DF.PHASES[this.phase].allies, true);
       if (this.phase === 2) this.flowery.x = 590 - (opts.blowPulls || 0) * 42;
-      if (this.omega) this.flowery.rainbow = true;
       this.saveCheckpoint();
       this.scripts.run(this.mainFlow(), 'main');
     }

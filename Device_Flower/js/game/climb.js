@@ -1,4 +1,4 @@
-/* Device_Flower - the finale: climb the beanstalk ahead of the rising thorns, then the last JARONA. */
+/* Device_Flower - Susie's Idea: climb ahead of the rising thorns. OMEGA FLOWERY forms at the top. */
 (function () {
   'use strict';
   const DF = window.DF;
@@ -27,8 +27,7 @@
       this.divers = [];
       this.msg = { text: 'CLIMB!   [ARROWS] Move   [Z] Dash', t: 0 };
       this.slow = 1;
-      this.boss = null;
-      this.cine = null;
+      this.omega = null;
       this.white = 0;
       this.seq = null;
       Audio.loop('wind', 'windloop', 0.22);
@@ -92,10 +91,7 @@
       if (s.flash > 0) s.flash = Math.max(0, s.flash - dt * 4);
       s.dashCD -= dt;
       if (this.seq) this.seq.update(rawDt);
-      if (this.cine) {
-        this.cine.t += rawDt;
-        return;
-      }
+      if (this.omega) this.omega.t += rawDt;
       if (this.state === 'climb') this.updateClimb(dt);
       else if (this.state === 'final') this.updateFinal(dt);
       // Trail.
@@ -103,7 +99,7 @@
       for (const p of s.trail) p.t += dt;
       while (s.trail.length && s.trail[0].t > 0.2) s.trail.shift();
       // Camera.
-      const target = this.state === 'final' ? TOP - 140 : s.y - 300;
+      const target = this.state === 'final' ? TOP - 300 : s.y - 300;
       this.camY = U.lerp(this.camY, target, Math.min(1, dt * 6));
     }
 
@@ -193,8 +189,8 @@
         if (s.inv <= 0 && U.dist(p.x, p.y, s.x, s.y) < s.r + 5) this.hurt(16);
       }
       this.petals = this.petals.filter((p) => p.y < this.camY + 520);
-      // Omega Flowery dives.
-      for (const d of this.divers) this.updateDiver(d, dt, false);
+      // Flowery dives down the stalk.
+      for (const d of this.divers) this.updateDiver(d, dt);
       this.divers = this.divers.filter((d) => !d.gone);
       // Thorns.
       const spd = Math.min(125, 60 + this.t * 5);
@@ -207,54 +203,36 @@
       if (s.y < TOP + 130) this.beginFinal();
     }
 
-    updateDiver(d, dt, isBoss) {
+    updateDiver(d, dt) {
       const s = this.s;
       d.t += dt;
       if (d.state === 'tele') {
         d.x = U.approach(d.x, s.x, 140 * dt);
         d.y = this.camY - 50;
-        if (d.t > (isBoss ? 1.3 : 0.75)) {
+        if (d.t > 0.75) {
           d.state = 'dive';
           d.t = 0;
           Audio.play('heavyswing', { vol: 0.7 });
         }
       } else if (d.state === 'dive') {
-        d.y += (isBoss ? 380 : 520) * dt;
-        const hh = isBoss ? 50 : 34;
-        const hw = isBoss ? 24 : 16;
+        d.y += 520 * dt;
+        const hh = 34;
+        const hw = 16;
         const gap = s.y - s.r - (d.y + hh);
-        d.blue = gap < (isBoss ? 110 : 115) && gap > -hh * 2;
+        d.blue = gap < 115 && gap > -hh * 2;
         const touching = Math.abs(d.x - s.x) < hw + s.r && Math.abs(d.y - s.y) < hh + s.r;
         if (touching) {
-          if (s.state === 'dash' && s.dy < -0.3) {
-            this.parryDiver(d, isBoss);
-          } else if (s.inv <= 0) {
-            this.hurt(isBoss ? 30 : 24);
-            if (isBoss) {
-              d.state = 'recoil';
-              d.t = 0;
-            }
-          }
+          if (s.state === 'dash' && s.dy < -0.3) this.parryDiver(d);
+          else if (s.inv <= 0) this.hurt(24);
         }
-        if (!isBoss && d.y > this.camY + 560) d.gone = true;
-        if (isBoss && d.y > s.y + 80) {
-          d.state = 'recoil';
-          d.t = 0;
-        }
+        if (d.y > this.camY + 560) d.gone = true;
       } else if (d.state === 'parried') {
         d.y -= 500 * dt;
         d.rot = (d.rot || 0) + dt * 14;
         if (d.t > 0.8) d.gone = true;
-      } else if (d.state === 'recoil') {
-        d.y = U.lerp(d.y, this.camY - 50, Math.min(1, dt * 4));
-        if (d.t > 1.0) {
-          d.state = 'tele';
-          d.t = 0;
-          this.msg = { text: 'DASH UP into him when he turns BLUE!', t: 0 };
-        }
       }
     }
-    parryDiver(d, isBoss) {
+    parryDiver(d) {
       const s = this.s;
       const bt = this.bt;
       s.state = 'free';
@@ -268,15 +246,11 @@
       this.fx.screenShake(6);
       this.fx.shockRing(s.x, this.sy(s.y) - 20, '#ffff60', 80, 0.4);
       this.fx.label(s.x + 30, this.sy(s.y) - 30, 'PARRY!', '#ffff40', { size: 16, life: 0.8 });
-      if (isBoss) {
-        d.state = 'won';
-        this.win();
-      } else {
-        d.state = 'parried';
-        d.t = 0;
-      }
+      d.state = 'parried';
+      d.t = 0;
     }
 
+    // At the top, the six Flowers pour their colors into FLOWERY: OMEGA FLOWERY.
     beginFinal() {
       if (this.state !== 'climb') return;
       this.state = 'final';
@@ -284,17 +258,33 @@
       this.petals.length = 0;
       this.divers.length = 0;
       const self = this;
+      const om = (this.omega = { x: 320, y: TOP - 170, t: 0, r: 170, spin: 0, alpha: 0, beams: 0, rainbow: false, enter: 0 });
       this.seq = new DF.Script(
         (function* () {
           self.msg = { text: '', t: 0 };
+          yield* DF.tween(om, { enter: 1 }, 0.8, 'outCubic');
+          Audio.voice('vc_with_your_powers_combined');
+          self.msg = { text: 'FLOWERY: Everyone...! With your powers combined...!', t: 0 };
           yield 0.6;
-          Audio.voice('fl_last_jarona');
-          self.boss = { x: 320, y: self.camY - 80, state: 'enter', t: 0, blue: false };
-          self.msg = { text: 'OMEGA FLOWERY: LAST... JARONA!!', t: 0 };
-          yield* DF.tween(self.boss, { y: TOP - 200 }, 1.0, 'outCubic');
-          self.boss.state = 'tele';
-          self.boss.t = 0;
-          self.msg = { text: 'DASH UP into him when he turns BLUE!', t: 0 };
+          Audio.play('sparkle', { vol: 0.7 });
+          yield* DF.tween(om, { alpha: 1 }, 0.5);
+          Audio.voice('vc_powering_up');
+          yield* DF.tween(om, { beams: 1 }, 0.4);
+          for (let i = 0; i < 6; i++) {
+            Audio.play('power', { vol: 0.5, pitch: 1 + i * 0.1 });
+            self.fx.shockRing(om.x, self.sy(om.y), U.RAINBOW[i], 80, 0.4);
+            yield 0.28;
+          }
+          yield* DF.tween(om, { r: 0 }, 0.6, 'inCubic');
+          Audio.voice('fl_omega');
+          Audio.play('omegarona', { vol: 0.7 });
+          self.fx.screenFlash('#ffffff', 1, 1.2);
+          self.fx.screenShake(10);
+          om.rainbow = true;
+          self.msg = { text: 'FLOWERY became OMEGA FLOWERY!', t: 0 };
+          yield 2.2;
+          yield* DF.tween(self, { white: 1 }, 0.6);
+          self.done = true;
         })()
       );
     }
@@ -302,37 +292,8 @@
     updateFinal(dt) {
       const s = this.s;
       this.moveSoul(dt);
-      s.y = U.clamp(s.y, TOP - 120, TOP + 120);
-      const b = this.boss;
-      if (!b || b.state === 'enter' || b.state === 'won') {
-        this.slow = 1;
-        return;
-      }
-      this.updateDiver(b, dt, true);
-      // Slow motion inside the parry window.
-      this.slow = b.state === 'dive' && b.blue ? 0.35 : 1;
-    }
-
-    win() {
-      const self = this;
-      this.slow = 1;
-      DF.Music.stop(0.4);
-      this.seq = new DF.Script(
-        (function* () {
-          Audio.play('ultraswing', { vol: 0.9 });
-          self.fx.screenFlash('#ffffff', 1, 2);
-          self.cine = { t: 0 };
-          yield 0.5;
-          Audio.play('scytheburst', { vol: 0.9 });
-          yield 0.6;
-          Audio.voice('vc_im_falling');
-          Audio.play('badexplosion', { vol: 0.7 });
-          yield 2.2;
-          yield* DF.tween(self, { white: 1 }, 0.8);
-          yield 0.4;
-          self.done = true;
-        })()
-      );
+      s.y = U.clamp(s.y, TOP - 40, TOP + 150);
+      if (this.omega) this.omega.spin += dt * 3;
     }
 
     // ---- drawing ------------------------------------------------------------------
@@ -411,7 +372,7 @@
         G.draw(G.frameAt('petal/spinning', p.t, 12, true), p.x, this.sy(p.y), { scale: 1.5, ox: 0.5, oy: 0.5, rot: p.rot });
       }
       for (const d of this.divers) this.drawDiver(d, 1.2);
-      if (this.boss) this.drawDiver(this.boss, 1.8);
+      if (this.omega) this.drawOmega();
       // Thorns rising from below.
       const ty = this.sy(this.thornY);
       if (ty < 520) {
@@ -435,31 +396,54 @@
       // SOUL (facing up).
       const s = this.s;
       for (const p of s.trail) G.draw('heart/heart', p.x, this.sy(p.y), { scale: 1, ox: 0.5, oy: 0.5, rot: Math.PI, tint: '#ffa020', alpha: 0.4 * (1 - p.t / 0.2) });
-      if (!(s.inv > 0 && Math.floor(s.inv * 15) % 2 === 0) && !this.cine) {
+      if (!(s.inv > 0 && Math.floor(s.inv * 15) % 2 === 0)) {
         const fl = 3 + Math.sin(DF.time * 40) * 1.5 + (s.state === 'dash' || s.boostT > 0 ? 6 : 0);
         G.rect(Math.round(s.x - 1), Math.round(this.sy(s.y) + 9), 2, Math.round(fl), '#ffd080', 0.8);
         G.draw('heart/heart', Math.round(s.x), Math.round(this.sy(s.y)), { scale: 1, ox: 0.5, oy: 0.5, rot: Math.PI, tint: '#ffa020', fill: '#fff', fillAmt: s.flash });
       }
       this.drawHUD(prog);
-      if (this.cine) this.drawCinematic();
       if (this.white > 0) G.rect(0, 0, 640, 480, '#ffffff', this.white);
     }
 
     drawDiver(d, scale) {
-      if (d.gone || d.state === 'won') return;
+      if (d.gone) return;
       const y = this.sy(d.y);
       if (d.state === 'tele') {
-        G.rect(Math.round(d.x - 22), 0, 44, 480, U.rainbow(), 0.08 + 0.1 * (Math.floor(d.t * 12) % 2));
-        G.drawFill(G.frameAt('flowery/powerup', d.t, 12, true), d.x, Math.max(40, y + 40), U.rainbow(), { scale, ox: 0.5, oy: 0.5 });
+        G.rect(Math.round(d.x - 22), 0, 44, 480, '#ffffff', 0.06 + 0.08 * (Math.floor(d.t * 12) % 2));
+        G.draw(G.frameAt('flowery/powerup', d.t, 12, true), d.x, Math.max(40, y + 40), { scale, ox: 0.5, oy: 0.5 });
         G.draw('fx/alert', d.x, Math.max(40, y + 40) - 50, { scale: 2, ox: 0.5, oy: 0.5 });
         return;
       }
       const f = G.frameAt('flowery/jarona', d.t, 18, true);
-      const col = d.blue ? '#2a6aff' : U.rainbow();
+      const col = d.blue ? '#2a6aff' : '#ffffff';
       G.drawFill(f, d.x, y, col, { scale, ox: 0.5, oy: 0.5, rot: Math.PI / 2 + (d.rot || 0), alpha: d.state === 'parried' ? Math.max(0, 1 - d.t) : 1 });
-      if (d.blue && d.state === 'dive') {
-        G.circle(d.x, y + 34 * (scale / 1.2), 10 + Math.sin(this.t * 50) * 3, '#5aa0ff', 0.4);
-        if (this.state === 'final') G.text('[Z]', this.s.x, this.sy(this.s.y) + 18, { size: 16, align: 'center', color: '#80c0ff', outline: '#000' });
+      if (d.blue && d.state === 'dive') G.circle(d.x, y + 34 * (scale / 1.2), 10 + Math.sin(this.t * 50) * 3, '#5aa0ff', 0.4);
+    }
+
+    // FLOWERY at the top of the stalk, the six Flowers circling and pouring in their colors.
+    drawOmega() {
+      const om = this.omega;
+      const x = om.x;
+      const y = this.sy(om.y) - (1 - om.enter) * 200;
+      const ids = ['aqua', 'seth', 'orange', 'green', 'yellow', 'blue'];
+      ids.forEach((id, i) => {
+        const a = (i / ids.length) * Math.PI * 2 + om.spin;
+        const px = x + Math.cos(a) * om.r;
+        const py = y + Math.sin(a) * om.r * 0.55;
+        if (om.beams > 0 && om.alpha > 0) {
+          G.ctx.save();
+          G.ctx.globalAlpha = om.beams * om.alpha;
+          G.line(px, py, x, y, DF.GANG[id].color, 4);
+          G.ctx.restore();
+        }
+        if (om.r > 2) G.draw(G.frameAt('gang/' + id, DF.time, DF.GANG[id].fps, true), px, py, { ox: 0.5, oy: 0.5, scale: 1.2, alpha: om.alpha });
+      });
+      const f = om.rainbow ? G.frameAt('flowery/poweringup', om.t, 10, true) : G.frameAt('flowery/powerup', om.t, 12, true);
+      if (om.rainbow) {
+        for (let i = 0; i < 7; i++) G.ring(x, y, 60 + i * 7 + Math.sin(om.t * 6 + i) * 3, U.RAINBOW[(i + Math.floor(om.t * 10)) % 7], 3, 0.35);
+        G.draw(f, x, y, { scale: 2, ox: 0.5, oy: 0.5, fill: U.rainbow(), fillAmt: 0.5 });
+      } else {
+        G.draw(f, x, y, { scale: 2, ox: 0.5, oy: 0.5, flip: true });
       }
     }
 
@@ -482,36 +466,6 @@
         const a = this.msg.t < 0.2 ? this.msg.t / 0.2 : this.msg.t > 3.3 ? (4 - this.msg.t) / 0.7 : 1;
         G.text(this.msg.text, 320, 440, { size: 16, align: 'center', color: '#ffff80', alpha: a, outline: '#000', outlineWidth: 4 });
       }
-    }
-
-    drawCinematic() {
-      const c = this.cine;
-      const t = c.t;
-      const ctx = G.ctx;
-      G.rect(0, 0, 640, 480, '#000000', Math.min(0.85, t * 2));
-      const bars = Math.min(1, t * 3) * 70;
-      G.rect(0, 0, 640, bars, '#000');
-      G.rect(0, 480 - bars, 640, bars, '#000');
-      // Kris slashes across; Omega Flowery shatters into seven colors.
-      const kx = U.lerp(120, 330, U.ease.outCubic(Math.min(1, t / 0.6)));
-      const frame = G.frameAt('kplat/slash', t, 16, false);
-      G.draw(frame, kx, 250, { scale: 3, ox: 0.5, oy: 0.5 });
-      if (t < 1.1) {
-        G.drawFill(G.frameAt('flowery/powerup', t, 12, true), 470 + Math.sin(t * 60) * (t > 0.6 ? 4 : 0), 230, U.rainbow(), { scale: 2.2, ox: 0.5, oy: 0.5, flip: true });
-      } else if (!c.burst) {
-        c.burst = true;
-        this.fx.petalBurst(470, 230, 40, U.RAINBOW);
-        this.fx.screenFlash('#ffffff', 0.8, 2);
-        this.fx.screenShake(10);
-      }
-      if (t > 0.45 && t < 1.2) {
-        const k = (t - 0.45) / 0.75;
-        ctx.save();
-        ctx.globalAlpha = 1 - k;
-        for (let i = 0; i < 7; i++) G.line(260, 330 - i * 4, 640, 130 - i * 4, U.RAINBOW[i], 3);
-        ctx.restore();
-      }
-      if (t > 1.3) G.text('FLOWERY was defeated!', 320, 400, { size: 32, align: 'center', color: '#ffffff', alpha: Math.min(1, (t - 1.3) * 2) });
     }
   }
   DF.Climb = Climb;

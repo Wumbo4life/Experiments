@@ -72,6 +72,67 @@
     PIX.bolt = G.pixelSprite(['..ww..', '.wwww.', 'wwwwww', '.wwww.', '..ww..'], { w: '#ffffff' });
     PIX.thorn = G.pixelSprite(['...w...', '..www..', '..www..', '.wwwww.', '.wwwww.', 'wwwwwww'], { w: '#ffffff' });
     PIX.note = G.pixelSprite(['...ww', '...w.', '...w.', '.www.', 'wwww.', '.ww..'], { w: '#ffffff' });
+    // Yellow's butterflies: wings open / wings up.
+    const fly = { k: '#0a1a50', b: '#1a4ab0', B: '#4a9aff', w: '#e0f0ff' };
+    PIX.butterfly = [
+      G.pixelSprite(
+        [
+          '.bb.....bb.',
+          'bBBb...bBBb',
+          'bBwBb.bBwBb',
+          'bBBBBkBBBBb',
+          '.bBBBkBBBb.',
+          '..bbBkBbb..',
+          '.bBBbkbBBb.',
+          '.bBb.k.bBb.',
+          '..b.....b..',
+        ],
+        fly
+      ),
+      G.pixelSprite(
+        [
+          '...........',
+          '...bb.bb...',
+          '..bBBkBBb..',
+          '..bBwkwBb..',
+          '..bBBkBBb..',
+          '...bBkBb...',
+          '..bBbkbBb..',
+          '..bb.k.bb..',
+          '...........',
+        ],
+        fly
+      ),
+    ];
+    PIX.cactus = G.pixelSprite(
+      [
+        '....gg....',
+        '...gWWg...',
+        '.g.gWWg...',
+        'gWggWWg.g.',
+        'gWWgWWggWg',
+        '.gWWWWgWWg',
+        '..ggWWWWg.',
+        '....gWWgg.',
+        '....gWWg..',
+        '...gWWWWg.',
+      ],
+      { g: '#9aa4b4', W: '#ffffff' }
+    );
+    PIX.flower = G.pixelSprite(
+      [
+        '...bbbbb...',
+        '..bBBbBBb..',
+        '.bBBbwbBBb.',
+        'bBBbwwwbBBb',
+        'bbbwwwwwbbb',
+        'bBBbwwwbBBb',
+        '.bBBbwbBBb.',
+        '..bBBbBBb..',
+        '...bbbbb...',
+      ],
+      { b: '#1a4ab0', B: '#4a9aff', w: '#ffffff' }
+    );
   };
 
   // ---- base bullet ---------------------------------------------------------------
@@ -157,8 +218,9 @@
   // ---- presets ------------------------------------------------------------------
   const B = (DF.Bullets = {});
 
+  // White petal. The drawn size matches the hitbox, so what looks like a gap is one.
   B.petal = (x, y, vx, vy, o) =>
-    new Bullet(Object.assign({ x, y, vx, vy, r: 5, anim: U.chance(0.5) ? 'petal/falling' : 'petal/spinning', fps: 12, scale: U.chance(0.5) ? 2 : 1.5, spin: U.rand(-3, 3) }, o || {}));
+    new Bullet(Object.assign({ x, y, vx, vy, r: 5, anim: U.chance(0.5) ? 'petal/falling' : 'petal/spin', fill: '#ffffff', fps: 12, scale: 2, spin: U.rand(-3, 3) }, o || {}));
   B.bluePetal = (x, y, vx, vy, o) => new Bullet(Object.assign({ x, y, vx, vy, r: 7, kind: 'blue', anim: 'petal/blue', fps: 10, scale: 2, rotateToVel: true }, o || {}));
   B.pinkPetal = (x, y, vx, vy, o) => new Bullet(Object.assign({ x, y, vx, vy, r: 6, anim: 'petal/barrier', fps: 12, scale: 1.5, spin: U.rand(-4, 4) }, o || {}));
   B.blueOrb = (x, y, vx, vy, o) => new Bullet(Object.assign({ x, y, vx, vy, r: 9, kind: 'blue', anim: 'bullet/blueorb', fps: 6, scale: 0.75 }, o || {}));
@@ -166,7 +228,7 @@
     new Bullet(
       Object.assign(
         {
-          x, y, vx, vy, r: 5, anim: 'petal/spinning', fps: 14, scale: 1.5, spin: U.rand(-5, 5),
+          x, y, vx, vy, r: 5, anim: 'petal/spin', fps: 14, scale: 2, spin: U.rand(-5, 5),
           seed: U.randInt(0, 6),
           drawFn(b) {
             const name = G.frameAt(b.anim, b.t, b.fps, true);
@@ -189,6 +251,24 @@
   B.pan = (x, y, vx, vy, o) => new Bullet(Object.assign({ x, y, vx, vy, r: 9, canvas: PIX.pan, scale: 2, spin: U.rand(6, 10) * (U.chance(0.5) ? 1 : -1) }, o || {}));
   B.dish = (x, y, vx, vy, o) => new Bullet(Object.assign({ x, y, vx, vy, r: 10, kind: 'heal', canvas: PIX.dish, scale: 2 }, o || {}));
   B.lily = (x, y, vx, o) => new Bullet(Object.assign({ x, y, vx, vy: 0, r: 13, kind: 'lily', canvas: PIX.lily, scale: 2 }, o || {}));
+  // Blue butterfly on a wavy course. BLUE: a DASH breaks it.
+  B.butterfly = (x, y, vx, amp, freq, ph, o) =>
+    new Bullet(
+      Object.assign(
+        {
+          x, y, vx, vy: 0, r: 6, kind: 'blue', y0: y, amp, freq, ph, fadeIn: 0.12,
+          onUpdate(b) {
+            b.y = b.y0 + Math.sin(b.t * b.freq + b.ph) * b.amp;
+          },
+          drawFn(b) {
+            const c = PIX.butterfly[Math.floor(b.t * 12) % 2];
+            G.drawCanvas(c, b.x, b.y, { scale: 2, alpha: Math.min(1, b.t / b.fadeIn), flip: true });
+          },
+        },
+        o || {}
+      )
+    );
+  B.cactus = (x, y, vx, o) => new Bullet(Object.assign({ x, y, vx, vy: 0, shape: 'rect', w: 14, h: 18, canvas: PIX.cactus, scale: 2 }, o || {}));
 
   // A falling column of knives across the whole board (hop over it on a lily pad).
   B.knifeWall = (w, x, vx, o) =>

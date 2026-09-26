@@ -97,9 +97,14 @@
   }
   DF.Arena = Arena;
 
-  const DASH_SPEED = 600;
-  const DASH_TIME = 0.15;
-  const RETURN_SPEED = 330;
+  // The orange SOUL's dash is charge-and-release: tap for a short hop forward,
+  // hold to build a longer, faster burst.
+  const DASH_MIN = 64;
+  const DASH_MAX = 196;
+  const SPEED_MIN = 560;
+  const SPEED_MAX = 920;
+  const CHARGE_TIME = 0.5;
+  const RETURN_SPEED = 300;
 
   class OrangeSoul {
     constructor() {
@@ -108,10 +113,15 @@
       this.homeX = 0;
       this.r = 6;
       this.grazeR = 24;
-      this.speed = 175;
+      this.speed = 180;
       this.state = 'free';
       this.stateT = 0;
       this.dashCD = 0;
+      this.dashTime = 0.12;
+      this.dashSpeed = SPEED_MIN;
+      this.charging = false;
+      this.charge = 0;
+      this.chargeSnd = null;
       this.inv = 0;
       this.visible = true;
       this.locked = true;
@@ -126,7 +136,7 @@
       this.flash = 0;
     }
     place(arena) {
-      this.homeX = arena.L + 42;
+      this.homeX = arena.L + 46;
       this.x = this.homeX;
       this.y = arena.cy;
       this.state = 'free';
@@ -134,9 +144,10 @@
       this.trail.length = 0;
       this.forceY = 0;
       this.hopT = 0;
+      this.stopCharge();
     }
     get dashing() {
-      return this.state === 'dash' || (this.state === 'return' && this.stateT < 0.05);
+      return this.state === 'dash' || (this.state === 'return' && this.stateT < 0.06);
     }
     get hopping() {
       return this.hopT > 0;
@@ -145,35 +156,61 @@
       this.hopT = dur;
       this.hopDur = dur;
     }
+    stopCharge() {
+      this.charging = false;
+      this.charge = 0;
+      if (this.chargeSnd) this.chargeSnd.stop(0.05);
+      this.chargeSnd = null;
+    }
+    startDash(power) {
+      const dist = U.lerp(DASH_MIN, DASH_MAX, power);
+      this.dashSpeed = U.lerp(SPEED_MIN, SPEED_MAX, power);
+      this.dashTime = dist / this.dashSpeed;
+      this.state = 'dash';
+      this.stateT = 0;
+      this.dashCD = 0.08;
+      this.dashCount++;
+      DF.Audio.play(power > 0.6 ? 'boost' : 'wing', { vol: 0.5, pitch: power > 0.6 ? 1.2 : 1.3 });
+    }
     update(dt, arena) {
       if (this.inv > 0) this.inv = Math.max(0, this.inv - dt);
       if (this.grazeFlash > 0) this.grazeFlash = Math.max(0, this.grazeFlash - dt * 4);
       if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 4);
       if (this.hopT > 0) this.hopT = Math.max(0, this.hopT - dt);
       this.dashCD -= dt;
-      if (this.locked) return;
+      if (this.locked) {
+        this.stopCharge();
+        return;
+      }
       const ax = Input.axis();
       const spd = this.speed * (Input.down('cancel') ? 0.5 : 1);
       this.y += (ax.y * spd + this.forceY) * dt;
-      if (Input.pressed('confirm') && this.dashCD <= 0 && this.canDash) {
-        this.state = 'dash';
-        this.stateT = 0;
-        this.dashCD = 0.3;
-        this.dashCount++;
-        DF.Audio.play('wing', { vol: 0.5, pitch: 1.3 });
+      // Charge while [Z] is held, dash on release.
+      if (Input.pressed('confirm') && this.state !== 'dash' && this.canDash && this.dashCD <= 0) {
+        this.charging = true;
+        this.charge = 0;
+      }
+      if (this.charging) {
+        if (Input.down('confirm')) {
+          this.charge = Math.min(1, this.charge + dt / CHARGE_TIME);
+          if (this.charge > 0.2 && !this.chargeSnd) this.chargeSnd = DF.Audio.play('charge', { vol: 0.3, pitch: 1.4 });
+        }
+        if (!Input.down('confirm') || Input.released('confirm')) {
+          const power = this.charge;
+          this.stopCharge();
+          this.startDash(power);
+        }
       }
       this.stateT += dt;
       if (this.state === 'dash') {
-        this.x += DASH_SPEED * dt;
-        if (this.stateT >= DASH_TIME) {
+        this.x += this.dashSpeed * dt;
+        if (this.stateT >= this.dashTime) {
           this.state = 'return';
           this.stateT = 0;
         }
-      } else if (this.state === 'return') {
-        this.x = U.approach(this.x, this.homeX, RETURN_SPEED * dt);
-        if (this.x === this.homeX) this.state = 'free';
       } else {
         this.x = U.approach(this.x, this.homeX, RETURN_SPEED * dt);
+        if (this.state === 'return' && this.x === this.homeX) this.state = 'free';
       }
       const m = this.r + 2;
       this.x = U.clamp(this.x, arena.L + m, arena.R - m);
@@ -186,7 +223,7 @@
     bounce() {
       if (this.state === 'dash') {
         this.state = 'return';
-        this.stateT = 0.05;
+        this.stateT = 0.06;
       }
     }
     draw(facing) {
@@ -199,15 +236,22 @@
       const hop = this.hopT > 0 ? Math.sin((1 - this.hopT / this.hopDur) * Math.PI) : 0;
       if (hop > 0) G.circle(this.x, this.y + 8, 6 * (1 - hop * 0.4), '#000', 0.5);
       const sc = 1 + hop * 0.6;
+      // Charge glow: a shrinking ring that locks on at full power.
+      if (this.charging && this.charge > 0.08) {
+        const full = this.charge >= 1;
+        const rr = full ? 11 + Math.sin(DF.time * 30) : 22 - this.charge * 11;
+        G.ring(this.x, this.y, rr, full ? '#ffffff' : '#ffd080', 2, full ? 0.9 : 0.4 + this.charge * 0.5);
+      }
       // Little exhaust flame behind the SOUL.
-      const fl = 3 + Math.sin(DF.time * 40) * 1.5 + (this.state === 'dash' ? 6 : 0);
+      const fl = 3 + Math.sin(DF.time * 40) * 1.5 + (this.state === 'dash' ? 6 : 0) + (this.charging ? this.charge * 5 : 0);
       if (facing !== 'up') {
         G.rect(Math.round(this.x - 9 - fl), Math.round(this.y - 1 - hop * 10), Math.round(fl), 2, '#ffd080', 0.8);
       } else {
         G.rect(Math.round(this.x - 1), Math.round(this.y + 9), 2, Math.round(fl), '#ffd080', 0.8);
       }
+      const glow = this.charging ? this.charge * 0.6 : 0;
       G.draw('heart/heart', Math.round(this.x), Math.round(this.y - hop * 10), {
-        scale: sc, ox: 0.5, oy: 0.5, rot, tint: this.color, fill: '#fff', fillAmt: Math.max(this.flash, this.grazeFlash * 0.6),
+        scale: sc, ox: 0.5, oy: 0.5, rot, tint: this.color, fill: '#fff', fillAmt: Math.max(this.flash, this.grazeFlash * 0.6, glow),
       });
     }
   }

@@ -132,88 +132,59 @@
   C.phase6 = function* (bt) {
     const fl = bt.flowery;
     yield* retireAllies(bt, '* YELLOW and BLUE are out of steam!');
-    yield* bt.talk([{ who: 'flowery', text: 'Everyone...\nWith your powers\ncombined...!', voice: 'vc_with_your_powers_combined' }]);
+    yield* bt.talk([{ who: 'flowery', text: "Everyone's worn out?\nThen I'll finish\nthis myself!", voice: 'vc_huhillshowyou' }]);
     DF.Music.jumpTo('pre2');
-    // The six Flowers circle Flowery and pour their colors into him.
-    const ring = { r: 170, spin: 0, alpha: 0, beams: 0 };
-    const ids = ['aqua', 'seth', 'orange', 'green', 'yellow', 'blue'];
+    const kris = bt.member('kris');
+    const ral = bt.member('ralsei');
+    // A plain JARONA straight at Kris. Ralsei gets there first.
+    fl.setPose('flowery/powerup', 12, true, true);
+    fl.glow = 0.5;
+    Audio.play('charge', { vol: 0.6 });
+    yield 0.8;
+    fl.visible = false;
+    fl.glow = 0;
+    const c = fl.center();
+    const dash = { x: c.x, y: c.y, trail: [], t: 0 };
     bt.overlay = {
       draw() {
-        const c = fl.center();
-        ids.forEach((id, i) => {
-          const ang = (i / ids.length) * Math.PI * 2 + ring.spin;
-          const x = c.x + Math.cos(ang) * ring.r;
-          const y = c.y + Math.sin(ang) * ring.r * 0.55;
-          if (ring.beams > 0) {
-            G.ctx.save();
-            G.ctx.globalAlpha = ring.beams * ring.alpha;
-            G.line(x, y, c.x, c.y, DF.GANG[id].color, 4);
-            G.ctx.restore();
-          }
-          G.draw(G.frameAt('gang/' + id, DF.time, DF.GANG[id].fps, true), x, y, { ox: 0.5, oy: 0.5, scale: 1.2, alpha: ring.alpha });
-        });
+        for (const p of dash.trail) G.drawFill(G.frameAt('flowery/jarona', p.t, 18, true), p.x, p.y, '#ffffff', { scale: 1.6, ox: 0.5, oy: 0.5, alpha: 0.25 });
+        G.drawFill(G.frameAt('flowery/jarona', dash.t, 18, true), dash.x, dash.y, '#ffffff', { scale: 1.6, ox: 0.5, oy: 0.5 });
       },
     };
-    Audio.play('sparkle', { vol: 0.7 });
-    yield* DF.tween(ring, { alpha: 1 }, 0.4);
-    fl.setPose('flowery/powerup', 12, true, true);
-    fl.glow = 0.6;
-    Audio.voice('vc_powering_up');
-    const spinner = new DF.Script(
+    const trail = new DF.Script(
       (function* () {
         for (;;) {
           const dt = yield null;
-          ring.spin += (dt || DF.STEP) * 3;
+          dash.t += dt || DF.STEP;
+          dash.trail.push({ x: dash.x, y: dash.y, t: dash.t });
+          if (dash.trail.length > 6) dash.trail.shift();
         }
       })()
     );
-    bt.scripts.list.push(spinner);
-    yield* DF.tween(ring, { beams: 1 }, 0.4);
-    for (let i = 0; i < 6; i++) {
-      Audio.play('power', { vol: 0.5, pitch: 1 + i * 0.1 });
-      bt.fx.shockRing(fl.center().x, fl.center().y, U.RAINBOW[i], 80, 0.4);
-      yield 0.3;
-    }
-    yield* DF.tween(ring, { r: 0 }, 0.6, 'inCubic');
-    spinner.stop();
-    bt.overlay = null;
-    Audio.voice('fl_omega');
-    bt.fx.screenFlash('#ffffff', 1, 1.2);
-    bt.fx.screenShake(10);
-    bt.omega = true;
-    fl.rainbow = true;
-    fl.glow = 1;
-    fl.idle();
-    DF.Music.jumpTo('chorus3');
-    yield 1.6;
-    yield* bt.say('* FLOWERY became OMEGA FLOWERY!');
-    // Omega blast; Ralsei takes the hit for everyone.
-    yield* bt.talk([{ who: 'flowery', text: 'Take THAT!', voice: 'fl_take_that' }]);
-    const ral = bt.member('ralsei');
-    const kris = bt.member('kris');
+    bt.scripts.list.push(trail);
+    Audio.voice('fl_jarona2');
+    const target = ral || kris;
     if (ral) {
       ral.setAnim('defend');
       Audio.play('jump', { vol: 0.7 });
-      const tx = kris.x + 60;
-      yield* DF.tween(ral, { x: tx, y: kris.y + 10 }, 0.25, 'outQuad');
-      const blast = { k: 0 };
-      bt.overlay = {
-        draw() {
-          const c = fl.center();
-          const w = 30 * (1 - Math.abs(blast.k - 0.5) * 2);
-          G.ctx.save();
-          G.ctx.globalAlpha = 0.85;
-          for (let i = 0; i < 7; i++) G.line(c.x - 40, c.y + (i - 3) * 3, ral.x + 20, ral.y - 40 + (i - 3) * 3, U.RAINBOW[(i + Math.floor(DF.time * 20)) % 7], Math.max(1, w / 4));
-          G.ctx.restore();
-        },
-      };
-      Audio.play('spearrise', { vol: 0.8 });
-      yield* DF.tween(blast, { k: 1 }, 0.5);
-      bt.overlay = null;
-      Audio.play('explosion', { vol: 0.8 });
-      bt.fx.screenShake(12);
-      bt.fx.screenFlash('#ffffff', 0.9, 2);
-      bt.fx.hit(ral.x, ral.y - 40, 1, '#ffffff');
+      yield* DF.all(DF.tween(ral, { x: kris.x + 70, y: kris.y + 12 }, 0.25, 'outQuad'), DF.tween(dash, { x: kris.x + 170, y: kris.y - 40 }, 0.25, 'inQuad'));
+    }
+    yield* DF.tween(dash, { x: target.x + 40, y: target.y - 40 }, 0.12, 'inQuad');
+    Audio.play('impact', { vol: 0.9 });
+    Audio.play('damage', { vol: 0.8 });
+    bt.fx.hit(target.x + 20, target.y - 40, 1);
+    bt.fx.screenShake(10);
+    bt.fx.screenFlash('#ffffff', 0.7, 3);
+    yield* DF.tween(dash, { x: 700, y: dash.y - 120 }, 0.35, 'outQuad');
+    trail.stop();
+    bt.overlay = null;
+    fl.visible = true;
+    fl.flash = 1;
+    fl.idle();
+    bt.fx.petalBurst(fl.center().x, fl.center().y, 8);
+    if (ral) {
+      bt.fx.number(ral.x + 34, ral.y - 44, ral.hp, '#ffffff');
+      bt.fx.msg(ral.x + 34, ral.y - 70, 'msg/down');
       bt.party = bt.party.filter((m) => m !== ral);
       bt.ralseiBody = { x: ral.x, y: ral.y, t: 0 };
       yield* DF.tween(bt.ralseiBody, { x: 104, y: 318 }, 0.6, 'outQuad');
@@ -227,12 +198,13 @@
         o.m.y = o.y;
       });
       yield* DF.all(...olds.map((o, i) => DF.tween(o.m, targets[i], 0.4, 'outCubic')));
-      yield* bt.say(['* Ralsei jumped in front of the blast!', '* Ralsei was knocked out!']);
+      yield* bt.say(['* Ralsei threw himself in front of Kris!', '* Ralsei was knocked out!']);
       yield* bt.say("[v:voice_susie]* Susie: RALSEI!!\n* ...Okay. NOW I'm mad.");
       yield* bt.talk([{ who: 'flowery', text: 'Sorry about that,\nlittle guy!', voice: 'vc_sorryaboutthatlittleguy' }]);
-      yield* bt.talk([{ who: 'flowery', text: "I'm only trying\nto help you!\nI'll stop you, no\nmatter what!", voice: 'vc_im_only_trying_to_help_you' }]);
-      yield* bt.say('* Kris and Susie stand alone.');
     }
+    yield* bt.talk([{ who: 'flowery', text: "I'm only trying\nto help you!\nI'll stop you, no\nmatter what!", voice: 'vc_im_only_trying_to_help_you' }]);
+    yield* bt.say(["[v:voice_susie]* Susie: Kris. You and me.\n* We're closing that Fountain. Together.", '* Kris and Susie stand alone.']);
+    DF.Music.jumpTo('chorus3');
     bt.nextFlavor = "* Susie is itching to try something.\n* ([c:yellow]Susie'sIdea[/c] needs 40% TP.)";
   };
 
@@ -419,6 +391,14 @@
     kris.visible = true;
     kris.override = null;
     yield* DF.tween(bt, { fade: 0 }, 0.4);
+    yield () => bt.climb.done;
+    if (bt.climb.failed) {
+      bt.climb = null;
+      yield* bt.gameOver();
+      return;
+    }
+    // OMEGA FLOWERY formed at the top: the last stretch is a run along the castle roof.
+    bt.climb = new DF.Finale(bt);
     yield () => bt.climb.done;
     if (bt.climb.failed) {
       bt.climb = null;
