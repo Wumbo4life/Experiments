@@ -58,8 +58,12 @@
       this.line = wanderLine(this.arena);
       this.slack = 0.2;
       this.quiet = [];
+      this.saved = null; // HARD MODE: the SAVE FLOWERY made during this attack
+      this.rw = null; // ...and the rewind back to it
+      this.holdUntil = 0; // after a LOAD, the attack scripts wait for the clock to catch up
       const fn = WAVES[id];
       this.main = this.pool.run(fn(this, battle, this.arena, this.soul), 'wave:' + id);
+      if (battle.hard) this.run(saveThenLoad(this));
     }
     get done() {
       return this.main.done;
@@ -79,9 +83,14 @@
       this.hintT = 0;
     }
     update(dt) {
+      if (this.rw) {
+        this.updateRewind(dt);
+        return;
+      }
       this.t += dt;
       this.hintT += dt;
-      this.pool.update(dt);
+      if (this.saveMark) this.saveMark.t += dt;
+      if (this.t >= this.holdUntil) this.pool.update(dt);
       for (let i = 0; i < this.bullets.length; i++) {
         const b = this.bullets[i];
         if (b.alive) b.update(dt, this);
@@ -154,6 +163,87 @@
         const sp = U.rand(90, 200);
         this.fx.add({ frame: 'heart/shard_1', anim: 'heart/shard', fps: 12, loop: true, x: b.x, y: b.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, grav: 300, life: 0.45, tint: color || '#5aa0ff', scale: 1 });
       }
+    }
+
+    // ---- HARD MODE: SAVE and LOAD -------------------------------------------------
+    // SAVE: remember every bullet on the board, the clock and the safe line.
+    saveState() {
+      const a = this.arena;
+      this.saved = {
+        t: this.t,
+        bullets: this.bullets.filter((b) => b.alive).map(snapBullet),
+        line: this.line,
+        slack: this.slack,
+        windDir: this.windDir,
+        forceY: this.soul.forceY,
+        lanes: a.lanes,
+        laneAlpha: a.laneAlpha,
+      };
+      this.saveMark = { t: 0 };
+      DF.Audio.play('sparkle_gem', { vol: 0.6 });
+      this.hintOnce('saveload', 'FLOWERY SAVED!  When he LOADs, the attack rewinds!');
+    }
+    /*
+     * LOAD: everything on the board slides back to the SAVE (the SOUL doesn't). The clock and
+     * the safe line run backwards at normal speed, so the SOUL can always follow the line back,
+     * and nothing can hit it until the rewind ends.
+     */
+    loadState() {
+      const S = this.saved;
+      if (!S) return;
+      const kept = new Set(S.bullets.map((x) => x.b));
+      const items = [];
+      for (const b of this.bullets) {
+        if (!b.alive || kept.has(b)) continue;
+        items.push({ b, fade: true });
+      }
+      for (const sb of S.bullets) {
+        const b = sb.b;
+        if (b.alive && this.bullets.indexOf(b) >= 0) {
+          items.push({ b, sb, x0: b.x, y0: b.y, t0: b.t });
+        } else {
+          restoreBullet(sb);
+          items.push({ b, sb, revive: true, x0: b.x, y0: b.y, t0: b.t });
+        }
+      }
+      this.rw = { k: 0, from: this.t, to: S.t, dur: Math.max(0.5, this.t - S.t), items };
+      this.line = S.line;
+      this.slack = S.slack;
+      this.saveMark = null;
+      this.arena.scrollSpeed = -420;
+      DF.Audio.voice('vc_hah', { vol: 0.8 });
+      DF.Audio.play('noise', { vol: 0.45 });
+      DF.Audio.play('wing', { vol: 0.5, pitch: 0.5 });
+    }
+    updateRewind(dt) {
+      const r = this.rw;
+      this.hintT += dt;
+      r.k = Math.min(1, r.k + dt / r.dur);
+      this.t = U.lerp(r.from, r.to, r.k);
+      for (const it of r.items) {
+        if (it.fade) {
+          // Launched after the SAVE: it never happened.
+          it.b.alive = false;
+          continue;
+        }
+        it.b.x = U.lerp(it.x0, it.sb.props.x, r.k);
+        it.b.y = U.lerp(it.y0, it.sb.props.y, r.k);
+        it.b.t = U.lerp(it.t0, it.sb.props.t, r.k);
+      }
+      if (r.k < 1) return;
+      const S = this.saved;
+      for (const sb of S.bullets) restoreBullet(sb);
+      this.bullets = S.bullets.map((sb) => sb.b);
+      this.t = S.t;
+      this.windDir = S.windDir;
+      this.soul.forceY = S.forceY;
+      this.arena.lanes = S.lanes;
+      this.arena.laneAlpha = S.laneAlpha;
+      this.arena.scrollSpeed = 150;
+      this.holdUntil = r.from;
+      this.rw = null;
+      this.saved = null;
+      this.fx.screenFlash('#ff2020', 0.35, 3);
     }
 
     // ---- fairness helpers ------------------------------------------------------
@@ -356,7 +446,7 @@
         } else {
           const f = G.frameAt('flowery/powerup', k * b.tele0, 12, true);
           if (b.who === 'omega') G.drawFill(f, ex, b.y, U.rainbow(), { ox: 0.5, oy: 0.5, scale: 1.3, flip: true });
-          else G.draw(f, ex, b.y, { ox: 0.5, oy: 0.5, scale: 1.3, flip: true });
+          else G.draw(f, ex, b.y, { ox: 0.5, oy: 0.5, scale: 1.3, flip: true, tint: this.battle.hard ? '#ff5a5a' : null });
         }
         G.draw('fx/alert', ex - 4, b.y - 42, { scale: 2, ox: 0.5, oy: 0.5, alpha: Math.floor(k * 10) % 2 ? 1 : 0.4 });
         return;
@@ -369,7 +459,7 @@
           G.draw(G.frameAt('gang/blue', b.t, 6, true), x, y, { ox: 0.5, oy: 0.5, scale: 1, alpha: al, rot: b.rot, fill: fillCol || '#fff', fillAmt: fillCol ? 0.75 : 0 });
         } else {
           const f = G.frameAt(b.who === 'omega' ? 'flowery/omegajarona' : 'flowery/jarona', b.t, 18, true);
-          const col = fillCol || (b.who === 'omega' ? U.rainbow(glow ? 2 : 0) : '#ffffff');
+          const col = fillCol || (b.who === 'omega' ? U.rainbow(glow ? 2 : 0) : this.battle.hard ? '#ff4a4a' : '#ffffff');
           G.drawFill(f, x, y, col, { ox: 0.5, oy: 0.5, scale: 1.3, alpha: al, rot: b.rot });
         }
       };
@@ -489,16 +579,20 @@
       const ret = this.deco({
         x: s.homeX,
         y: s.y,
+        fired: false,
         drawFn(b) {
           drawReticle(b.x, b.y, b.t / (aim + lock), b.t > aim, o.blue, a);
         },
         onUpdate(b) {
           if (b.t < aim) b.y = U.approach(b.y, s.y, 260 * DF.STEP);
-          if (b.t >= aim + lock && !ctl.fired) {
-            ctl.fired = true;
+          if (b.t >= aim + lock) {
             b.alive = false;
-            DF.Audio.play('punchmed', { vol: 0.35, pitch: 1.8 });
-            w.shot(a.R + 12, b.y, -820, 0, o.blue);
+            if (!b.fired) {
+              b.fired = true;
+              ctl.fired = true;
+              DF.Audio.play('punchmed', { vol: 0.35, pitch: 1.8 });
+              w.shot(a.R + 12, b.y, -820, 0, o.blue);
+            }
           }
         },
       });
@@ -556,7 +650,37 @@
       }
       ctx.save();
       a.clip();
-      for (const b of this.bullets) if (b.clip) b.draw();
+      if (this.rw) {
+        const r = this.rw;
+        for (const it of r.items) {
+          const al = it.fade ? 1 - r.k : it.revive ? r.k : 1;
+          if (al <= 0.02) continue;
+          ctx.save();
+          ctx.globalAlpha = al;
+          it.b.draw();
+          ctx.restore();
+        }
+        // VHS rewind lines across the board.
+        for (let i = 0; i < 9; i++) {
+          const y = a.T + ((i * 29 + r.k * 900) % a.h);
+          G.rect(a.L, Math.round(y), a.w, 3 + (i % 3) * 3, '#ffffff', 0.12);
+        }
+        G.rect(a.L, a.T, a.w, a.h, '#ff0000', 0.1);
+      } else {
+        for (const b of this.bullets) if (b.clip) b.draw();
+      }
+      if (this.saveMark) drawSaveStar(a.L + 20, a.T + 18, this.saveMark.t);
+      if (this.rw) {
+        ctx.fillStyle = '#ff3030';
+        for (const ox of [0, 14]) {
+          ctx.beginPath();
+          ctx.moveTo(a.L + 10 + ox, a.T + 18);
+          ctx.lineTo(a.L + 22 + ox, a.T + 10);
+          ctx.lineTo(a.L + 22 + ox, a.T + 26);
+          ctx.fill();
+        }
+        G.text('LOAD', a.L + 44, a.T + 9, { size: 16, color: '#ff3030', outline: '#000', outlineWidth: 4 });
+      }
       if (DF.debug && DF.debug.showLine) {
         // Where the safe line will be when things now at each x reach the SOUL (at ~150px/s).
         for (let x = this.soul.homeX; x < a.R; x += 6) {
@@ -565,7 +689,11 @@
         }
       }
       ctx.restore();
-      for (const b of this.bullets) if (!b.clip) b.draw();
+      if (this.rw) {
+        for (const it of this.rw.items) if (!it.b.clip && !it.fade) it.b.draw();
+      } else {
+        for (const b of this.bullets) if (!b.clip) b.draw();
+      }
     }
     drawHint() {
       if (!this.hint || this.hintT > 4.5) return;
@@ -574,6 +702,8 @@
       G.text(this.hint, a.cx, a.B + 12, { size: 16, align: 'center', color: '#ffff80', alpha, outline: '#000', outlineWidth: 4 });
     }
     finish() {
+      this.rw = null;
+      this.arena.scrollSpeed = 150;
       this.soul.forceY = 0;
       this.arena.lanes = 0;
       this.arena.laneAlpha = 0;
@@ -582,6 +712,64 @@
     }
   }
   DF.Wave = Wave;
+
+  // A bullet's own state, one level deep (arrays of plain objects such as bamboo openings
+  // are copied element by element), so a LOAD can put the very same object back.
+  class ArrSnap {
+    constructor(arr) {
+      this.arr = arr;
+      this.items = arr.slice();
+      this.elems = arr.map((e) => (e && typeof e === 'object' && !(e instanceof Bullet) ? Object.assign({}, e) : null));
+    }
+  }
+  function snapBullet(b) {
+    const props = {};
+    for (const k of Object.keys(b)) props[k] = Array.isArray(b[k]) ? new ArrSnap(b[k]) : b[k];
+    return { b, props };
+  }
+  function restoreBullet(sb) {
+    const b = sb.b;
+    for (const k of Object.keys(b)) if (!(k in sb.props)) delete b[k];
+    for (const k in sb.props) {
+      const v = sb.props[k];
+      if (v instanceof ArrSnap) {
+        v.arr.length = 0;
+        v.items.forEach((e, i) => {
+          if (v.elems[i]) Object.assign(e, v.elems[i]);
+          v.arr.push(e);
+        });
+        b[k] = v.arr;
+      } else b[k] = v;
+    }
+  }
+  // FLOWERY's red SAVE star, pinned to the corner of the board until he LOADs.
+  function drawSaveStar(x, y, t) {
+    const pop = t < 0.2 ? t / 0.2 : 1;
+    G.draw(G.frameAt('fx/star', t, 10, true), x, y, { scale: 2 * pop, ox: 0.5, oy: 0.5, tint: '#ff3030' });
+    G.text('SAVE', x + 14, y - 9, { size: 16, color: '#ff4040', alpha: pop, outline: '#000', outlineWidth: 4 });
+  }
+  // HARD MODE: once per attack, FLOWERY SAVEs... and a moment later, LOADs.
+  // He only SAVEs at a calm moment: not mid-hop, and nothing you must react to (a lily pad,
+  // a knife wall, a charging attacker) close ahead. After a LOAD, everything that needs an
+  // answer is back at a fair distance.
+  function calmToSave(w) {
+    const s = w.soul;
+    if (s.hopping) return false;
+    return !w.bullets.some((b) => {
+      if (!b.alive) return false;
+      const ahead = b.x - s.x;
+      if (b.kind === 'lily' || b.ground) return ahead > -30 && ahead < 220;
+      if (b.state === 'charge') return ahead > -40 && ahead < 260;
+      return false;
+    });
+  }
+  function* saveThenLoad(w) {
+    yield U.rand(1.6, 2.2);
+    yield () => calmToSave(w);
+    w.saveState();
+    yield U.rand(1.5, 1.9);
+    w.loadState();
+  }
 
   function drawReticle(x, y, k, locked, blue, a) {
     const col = locked ? (blue ? '#4a9aff' : '#ffe040') : '#ffffff';
@@ -696,6 +884,7 @@
     const ret = w.deco({
       x: wall.x,
       y: fl.y,
+      life: 0.62,
       onUpdate(b) {
         b.x = wall.x;
       },
@@ -747,7 +936,7 @@
     bt.hideEnemy(bt.flowery);
     for (let i = 0; i < 5; i++) {
       const c = w.charger({ who: 'flowery', y: w.soul.y, speed: 380 + i * 25, tele: 0.8 - i * 0.05, track: true, voice: i === 0 || i === 4 });
-      yield () => c.state !== 'tele';
+      yield () => c.state !== 'tele' || !c.alive;
       yield 1.05;
     }
     yield 0.9;
@@ -817,7 +1006,7 @@
     bt.hideEnemy(bt.flowery);
     for (let i = 0; i < 6; i++) {
       const c = w.charger({ who: 'flowery', y: w.soul.y, speed: 460 + i * 18, tele: 0.62, track: true, voice: i === 0 });
-      yield () => c.state !== 'tele';
+      yield () => c.state !== 'tele' || !c.alive;
       yield 0.5;
       for (let k = 0; k < 3; k++) {
         const y = w.rY(10);
@@ -1014,7 +1203,7 @@
         track: true,
         voice: i === 1,
       });
-      yield () => c.state !== 'tele';
+      yield () => c.state !== 'tele' || !c.alive;
       yield 1.0;
     }
     yield 1.2;
@@ -1057,7 +1246,7 @@
       yield () => w.t >= at;
       if (orange) bt.hideEnemy(orange);
       const c = w.charger(Object.assign({ y: w.soul.y }, opts));
-      yield () => c.state !== 'tele';
+      yield () => c.state !== 'tele' || !c.alive;
       yield 0.9;
       if (orange) bt.showEnemy(orange);
     }
@@ -1094,7 +1283,7 @@
     w.hintOnce('shot', 'DASH into BLUE bullets to knock them back!');
     for (let i = 0; i < 8; i++) {
       const sh = w.yellowShot({ blue: i % 3 === 2, aim: 0.62 - Math.min(i, 5) * 0.04, lock: 0.26 });
-      yield () => sh.fired;
+      yield () => sh.fired || !sh.reticle.alive;
       yield 0.4;
       if (i % 3 === 1) {
         yield* volley(w, a);
@@ -1163,7 +1352,7 @@
       yield () => w.t >= at;
       if (blue) bt.hideEnemy(blue);
       const c = w.charger(Object.assign({ y: w.soul.y }, opts));
-      yield () => c.state !== 'tele';
+      yield () => c.state !== 'tele' || !c.alive;
       yield 1.2;
       if (blue) bt.showEnemy(blue);
     }
@@ -1182,10 +1371,10 @@
     bt.hideEnemy(bt.flowery);
     for (let i = 0; i < 4; i++) {
       const c1 = w.charger({ who: 'flowery', y: w.soul.y, speed: 500, tele: 0.6, track: true, voice: i === 0 || i === 3 });
-      yield () => c1.state !== 'tele';
+      yield () => c1.state !== 'tele' || !c1.alive;
       yield 0.45;
       const c2 = w.charger({ who: 'flowery', y: w.soul.y, speed: 540, tele: 0.55, track: true });
-      yield () => c2.state !== 'tele';
+      yield () => c2.state !== 'tele' || !c2.alive;
       yield 0.55;
       for (let k = 0; k < 3; k++) {
         const y = w.rY(10);

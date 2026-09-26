@@ -138,6 +138,16 @@
 
     updateClimb(dt) {
       const s = this.s;
+      if (this.rw) {
+        this.updateRewind(dt);
+        return;
+      }
+      // HARD MODE: FLOWERY SAVEs a third of the way up... and LOADs you back two thirds up.
+      if (this.bt.hard) {
+        const prog = s.y / TOP;
+        if (!this.saveDone && prog > 0.35) this.climbSave();
+        else if (this.saved && prog > 0.65) this.climbLoad();
+      }
       this.moveSoul(dt);
       // Obstacles.
       for (const o of this.obs) {
@@ -296,6 +306,46 @@
       if (this.omega) this.omega.spin += dt * 3;
     }
 
+    climbSave() {
+      const s = this.s;
+      this.saveDone = true;
+      this.saved = { x: s.x, y: s.y, thornY: this.thornY, alive: this.obs.map((o) => o.alive), fired: this.obs.map((o) => o.fired) };
+      Audio.play('sparkle_gem', { vol: 0.7 });
+      this.msg = { text: 'FLOWERY SAVED!', t: 0 };
+    }
+    climbLoad() {
+      const s = this.s;
+      this.rw = { k: 0, x: s.x, y: s.y, thornY: this.thornY };
+      this.petals.length = 0;
+      this.divers.length = 0;
+      s.state = 'free';
+      s.boostT = 0;
+      Audio.voice('vc_hah');
+      Audio.play('noise', { vol: 0.5 });
+      Audio.play('wing', { vol: 0.6, pitch: 0.5 });
+      this.msg = { text: 'FLOWERY LOADED!  Back down you go!', t: 0 };
+    }
+    // Dragged back down to the SAVE; everything you broke on the way is whole again.
+    updateRewind(dt) {
+      const r = this.rw;
+      const S = this.saved;
+      const s = this.s;
+      r.k = Math.min(1, r.k + dt / 1.4);
+      const e = U.ease.inOutQuad(r.k);
+      s.x = U.lerp(r.x, S.x, e);
+      s.y = U.lerp(r.y, S.y, e);
+      this.thornY = U.lerp(r.thornY, S.thornY, e);
+      s.inv = Math.max(s.inv, 0.25);
+      if (r.k < 1) return;
+      this.obs.forEach((o, i) => {
+        o.alive = S.alive[i];
+        o.fired = S.fired[i];
+      });
+      this.rw = null;
+      this.saved = null;
+      this.fx.screenFlash('#ff2020', 0.4, 3);
+    }
+
     // ---- drawing ------------------------------------------------------------------
     draw() {
       const ctx = G.ctx;
@@ -306,6 +356,7 @@
       g.addColorStop(1, U.hsl(320 - prog * 40, 55, 14 + prog * 18));
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, 640, 480);
+      if (this.bt.hard) G.rect(0, 0, 640, 480, '#ff0000', 0.12);
       for (let i = 0; i < 60; i++) {
         const x = (i * 97) % 640;
         const y = ((i * 53 - this.camY * 0.15) % 480 + 480) % 480;
@@ -401,6 +452,19 @@
         G.rect(Math.round(s.x - 1), Math.round(this.sy(s.y) + 9), 2, Math.round(fl), '#ffd080', 0.8);
         G.draw('heart/heart', Math.round(s.x), Math.round(this.sy(s.y)), { scale: 1, ox: 0.5, oy: 0.5, rot: Math.PI, tint: '#ffa020', fill: '#fff', fillAmt: s.flash });
       }
+      if (this.saved && !this.rw) {
+        // FLOWERY's SAVE star, hanging at the height he SAVEd.
+        const sy = this.sy(this.saved.y);
+        if (sy > -20 && sy < 500) {
+          G.draw(G.frameAt('fx/star', this.t, 10, true), 250, sy, { scale: 2, ox: 0.5, oy: 0.5, tint: '#ff3030' });
+          G.text('SAVE', 264, sy - 9, { size: 16, color: '#ff4040', outline: '#000', outlineWidth: 4 });
+        }
+      }
+      if (this.rw) {
+        G.rect(0, 0, 640, 480, '#200000', 0.3);
+        for (let i = 0; i < 14; i++) G.rect(0, Math.round((i * 43 + this.rw.k * 1400) % 480), 640, 4 + (i % 3) * 5, '#ffffff', 0.12);
+        G.text('<< LOAD', 40, 60, { size: 32, color: '#ff3030', outline: '#000', outlineWidth: 5 });
+      }
       this.drawHUD(prog);
       if (this.white > 0) G.rect(0, 0, 640, 480, '#ffffff', this.white);
     }
@@ -410,12 +474,12 @@
       const y = this.sy(d.y);
       if (d.state === 'tele') {
         G.rect(Math.round(d.x - 22), 0, 44, 480, '#ffffff', 0.06 + 0.08 * (Math.floor(d.t * 12) % 2));
-        G.draw(G.frameAt('flowery/powerup', d.t, 12, true), d.x, Math.max(40, y + 40), { scale, ox: 0.5, oy: 0.5 });
+        G.draw(G.frameAt('flowery/powerup', d.t, 12, true), d.x, Math.max(40, y + 40), { scale, ox: 0.5, oy: 0.5, tint: this.bt.hard ? '#ff5a5a' : null });
         G.draw('fx/alert', d.x, Math.max(40, y + 40) - 50, { scale: 2, ox: 0.5, oy: 0.5 });
         return;
       }
       const f = G.frameAt('flowery/jarona', d.t, 18, true);
-      const col = d.blue ? '#2a6aff' : '#ffffff';
+      const col = d.blue ? '#2a6aff' : this.bt.hard ? '#ff4a4a' : '#ffffff';
       G.drawFill(f, d.x, y, col, { scale, ox: 0.5, oy: 0.5, rot: Math.PI / 2 + (d.rot || 0), alpha: d.state === 'parried' ? Math.max(0, 1 - d.t) : 1 });
       if (d.blue && d.state === 'dive') G.circle(d.x, y + 34 * (scale / 1.2), 10 + Math.sin(this.t * 50) * 3, '#5aa0ff', 0.4);
     }
@@ -443,8 +507,9 @@
         for (let i = 0; i < 7; i++) G.ring(x, y, 60 + i * 7 + Math.sin(om.t * 6 + i) * 3, U.RAINBOW[(i + Math.floor(om.t * 10)) % 7], 3, 0.35);
         G.draw(f, x, y, { scale: 2, ox: 0.5, oy: 0.5, fill: U.rainbow(), fillAmt: 0.5 });
       } else {
-        G.draw(f, x, y, { scale: 2, ox: 0.5, oy: 0.5, flip: true });
+        G.draw(f, x, y, { scale: 2, ox: 0.5, oy: 0.5, flip: true, tint: this.bt.hard ? '#ff5a5a' : null });
       }
+      if (this.bt.hard) G.draw('heart/heart', x, y + 4, { scale: 1.2 + 0.3 * Math.max(0, Math.sin(om.t * 5)), ox: 0.5, oy: 0.5, tint: '#ff0000' });
     }
 
     drawHUD(prog) {

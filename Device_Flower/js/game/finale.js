@@ -115,7 +115,9 @@
 
     attack(kind, tele) {
       const [w, h] = SIZES[kind];
-      const a = { kind, x: 580, y: LANES[kind], w, h, state: 'tele', t: 0, tele, speed: kind === 'last' ? 430 : 610, blue: false, trail: [], rot: 0, vy: 0 };
+      const hard = this.bt.hard;
+      const speed = (kind === 'last' ? 430 : 610) * (hard ? 1.15 : 1) * (this.againK || 1);
+      const a = { kind, x: 580, y: LANES[kind], w, h, state: 'tele', t: 0, tele: tele * (hard ? 0.85 : 1), speed, blue: false, trail: [], rot: 0, vy: 0 };
       this.attacks.push(a);
       this.om.visible = false;
       Audio.play('charge', { vol: 0.35, pitch: kind === 'high' ? 1.4 : 1.1 });
@@ -129,11 +131,36 @@
         Audio.voice('fl_last_jarona');
         const a = this.attack('last', 1.5);
         yield () => a.state === 'gone' || a.state === 'clash';
-        if (a.state === 'clash') break;
+        if (a.state === 'clash') {
+          if (!this.bt.hard || this.loaded) break;
+          // HARD MODE: DETERMINATION. He LOADs back to before the parry.
+          this.loaded = true;
+          yield* this.loadBack(a);
+          continue;
+        }
         yield 1.2;
         this.msg = { text: 'Again! Slash when it glows BLUE!', t: 0 };
       }
       yield* this.clashAndFinish();
+    }
+
+    *loadBack(a) {
+      Audio.play('impact', { vol: 0.8 });
+      this.freeze = 0.25;
+      yield 0.3;
+      a.state = 'gone';
+      Audio.play('noise', { vol: 0.5 });
+      Audio.play('wing', { vol: 0.6, pitch: 0.5 });
+      this.rewind = { t: 0 };
+      this.msg = { text: 'FLOWERY: Heh... NOPE! I LOADED!', t: 0 };
+      yield* DF.tween(this.rewind, { t: 1 }, 1.2, 'inOutQuad');
+      this.rewind = null;
+      this.fx.screenFlash('#ff2020', 0.7, 2);
+      this.fx.screenShake(8);
+      this.bar = 85;
+      this.againK = 1.2;
+      this.msg = { text: 'LAST JARONA... AGAIN! Faster this time!', t: 0 };
+      yield 0.8;
     }
 
     *clashAndFinish() {
@@ -202,6 +229,17 @@
       const last = this.attacks.find((a) => a.kind === 'last' && a.state === 'glide');
       this.slow = last && last.blue ? 0.35 : 1;
       if (this.finish) this.finish.t += dt;
+      if (this.barRewind) {
+        const r = this.barRewind;
+        r.k = Math.min(1, r.k + rawDt);
+        this.bar = U.lerp(r.from, r.to, r.k);
+        this.rewind.t = r.k;
+        if (r.k >= 1) {
+          this.barRewind = null;
+          this.rewind = null;
+          this.fx.screenFlash('#ff2020', 0.4, 3);
+        }
+      }
       if (this.clash) this.clash.t += dt;
     }
 
@@ -377,6 +415,22 @@
     addBar(n) {
       const before = this.bar;
       this.bar = Math.min(100, this.bar + n);
+      // HARD MODE: FLOWERY SAVEs your progress past the halfway mark, then LOADs it back once.
+      if (this.bt.hard && this.bar < 100) {
+        if (this.barSave === undefined && this.bar >= 45) {
+          this.barSave = this.bar;
+          Audio.play('sparkle_gem', { vol: 0.7 });
+          this.msg = { text: 'FLOWERY SAVED!', t: 0 };
+        } else if (this.barSave !== undefined && !this.barRewind && !this.barLoaded && this.bar >= 72) {
+          this.barLoaded = true;
+          this.barRewind = { from: this.bar, to: this.barSave, k: 0 };
+          this.rewind = { t: 0 };
+          Audio.voice('vc_hah');
+          Audio.play('noise', { vol: 0.5 });
+          this.msg = { text: 'FLOWERY LOADED!  Your progress rewinds!', t: 0 };
+          return;
+        }
+      }
       if (before < 80 && this.bar >= 80) Audio.play('tensionhorn', { vol: 0.4 });
     }
 
@@ -412,6 +466,7 @@
       g.addColorStop(1, '#d0603c');
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, 640, 480);
+      if (this.bt.hard) G.rect(0, 0, 640, GROUND, '#ff0000', 0.14);
       ctx.save();
       ctx.globalAlpha = 0.12;
       for (let i = 0; i < 7; i++) G.rect(0, i * 52, 640, 52, U.RAINBOW[(i + Math.floor(this.t * 5)) % 7]);
@@ -445,6 +500,11 @@
       this.drawKris();
       if (this.finish) this.drawFinish();
       this.drawHUD();
+      if (this.rewind) {
+        G.rect(0, 0, 640, 480, '#200000', 0.3);
+        for (let i = 0; i < 14; i++) G.rect(0, Math.round((i * 43 + this.rewind.t * 1400) % 480), 640, 4 + (i % 3) * 5, '#ffffff', 0.12);
+        G.text('<< LOAD', 40, 70, { size: 32, color: '#ff3030', outline: '#000', outlineWidth: 5 });
+      }
       if (this.white > 0) G.rect(0, 0, 640, 480, '#ffffff', this.white);
     }
 
@@ -487,6 +547,7 @@
     drawOmegaSprite(frame, x, y, scale, flip, alpha) {
       for (let i = 0; i < 4; i++) G.ring(x, y, 34 + i * 8 + Math.sin(this.t * 7 + i) * 3, U.RAINBOW[(i * 2 + Math.floor(this.t * 12)) % 7], 3, 0.3 * (alpha === undefined ? 1 : alpha));
       G.draw(frame, x, y, { scale, ox: 0.5, oy: 0.5, flip, fill: U.rainbow(), fillAmt: 0.5, alpha });
+      if (this.bt.hard) G.draw('heart/heart', x, y - 4, { scale: 1.2 + 0.3 * Math.max(0, Math.sin(this.t * 5)), ox: 0.5, oy: 0.5, tint: '#ff0000', alpha });
     }
 
     drawOmega() {
@@ -559,7 +620,12 @@
       }
       const y = f.y + Math.max(0, t - 0.5) * Math.max(0, t - 0.5) * 300;
       if (t > 0.3 && y < 520) G.draw('flowery/jumpdown_1', f.x + t * 20, y, { scale: 2, ox: 0.5, oy: 0.5, rot: t * 3, alpha: Math.min(1, (t - 0.3) * 4) });
-      if (t > 1.0) G.text('OMEGA FLOWERY was defeated!', 320, 120, { size: 32, align: 'center', color: '#ffffff', alpha: Math.min(1, (t - 1.0) * 2), outline: '#000', outlineWidth: 5 });
+      if (this.bt.hard && t > 0.3 && t < 1.6) {
+        // The stolen red SOUL breaks apart.
+        G.draw(t < 0.7 ? 'heart/heart' : 'heart/break', f.x, f.y - 10, { scale: 2, ox: 0.5, oy: 0.5, tint: '#ff0000', alpha: Math.min(1, (1.6 - t) * 2) });
+      }
+      const line = this.bt.hard ? 'His DETERMINATION shattered!' : 'OMEGA FLOWERY was defeated!';
+      if (t > 1.0) G.text(line, 320, 120, { size: 32, align: 'center', color: this.bt.hard ? '#ff6060' : '#ffffff', alpha: Math.min(1, (t - 1.0) * 2), outline: '#000', outlineWidth: 5 });
     }
 
     drawHUD() {
@@ -572,6 +638,7 @@
       G.rect(x + w * 0.8, y, w * 0.2, 14, '#802020');
       G.rect(x, y, Math.round((w * this.bar) / 100), 14, this.bar >= 80 ? U.rainbow() : '#ffd020');
       G.rect(x + w * 0.8, y - 3, 2, 20, '#ffffff');
+      if (this.barSave !== undefined && !this.barLoaded) G.draw(G.frameAt('fx/star', this.t, 10, true), x + (w * this.barSave) / 100, y + 7, { scale: 2, ox: 0.5, oy: 0.5, tint: '#ff3030' });
       G.text('OMEGA', x - 10, y - 1, { size: 16, align: 'right', color: '#ffffff' });
       G.text(this.bar >= 80 ? 'CRITICAL!' : Math.floor(this.bar) + '%', x + w + 10, y - 1, { size: 16, color: this.bar >= 80 ? '#ff6060' : '#ffffff' });
       // Party HP.

@@ -247,7 +247,7 @@
       allies: [],
       acts: ['susieidea'],
       waves: ['bamboo_hard', 'jarona3', 'prism'],
-      check: ['* FLOWERY - AT 99 DF 99\n* No friends left to lean on.\n* He is not backing down.', '* Susie is itching to try something.\n* (Her [c:yellow]IDEA[/c] needs 40% TP.)'],
+      check: ['* FLOWERY - AT 99 DF 99\n* No friends left to lean on.\n* He is not backing down.', '* Susie is itching to try something.\n* (Her [c:yellow]IDEA[/c] needs 60% TP.)'],
       flavor: [
         "* FLOWERY is breathing hard.\n* His smile hasn't moved an inch.",
         '* Susie cracks her knuckles.',
@@ -262,18 +262,26 @@
     },
   ];
 
+  // HARD MODE taunts, mixed into FLOWERY's turns.
+  DF.HARD_TALK = [
+    { who: 'flowery', text: 'Go on, win!\nI\'ll just LOAD!', voice: 'vc_hah' },
+    { who: 'flowery', text: 'DETERMINATION\nfeels GREAT!', voice: 'vc_wow' },
+    { who: 'flowery', text: 'Your SAVE FILE\nis so cozy!\nI\'m keeping it!', voice: 'vc_hoo' },
+    { who: 'flowery', text: 'RESET? Nah.\nI\'ll just LOAD!', voice: 'vc_yes' },
+  ];
+
   // ACT menu entries. `party` lists who else takes part (their turns are used up).
   DF.ACTS = {
     check: { name: 'Check', desc: '' },
-    posey: { name: 'Posey', desc: 'Strike\na pose' },
-    poseyz: { name: 'PoseyZ', desc: 'Everyone\nposes', party: ['susie', 'ralsei'] },
-    blowaway: { name: 'BlowAway', desc: 'Mash [Z]\nto pull' },
-    blowawayz: { name: 'BlowAwayZ', desc: 'Mash [Z]\nwith\nfriends', party: ['susie', 'ralsei'] },
-    spin: { name: 'Spin', desc: 'Spin with\narrows' },
-    spinz: { name: 'SpinZ', desc: 'Team spin', party: ['susie', 'ralsei'] },
-    praise: { name: 'Praise', desc: 'Say nice\nthings' },
-    praisez: { name: 'PraiseZ', desc: 'Team\npraise', party: ['susie', 'ralsei'] },
+    posey: { name: 'Posey', desc: 'Strike\na pose', tp: 40 },
+    poseyz: { name: 'PoseyZ', desc: 'Everyone\nposes', tp: 75, party: ['susie', 'ralsei'] },
+    blowaway: { name: 'BlowAway', desc: 'Mash [Z]\nto pull', tp: 40 },
+    blowawayz: { name: 'BlowAwayZ', desc: 'Mash [Z]\nwith\nfriends', tp: 75, party: ['susie', 'ralsei'] },
+    spin: { name: 'Spin', desc: 'Spin with\narrows', tp: 40 },
+    spinz: { name: 'SpinZ', desc: 'Team spin', tp: 75, party: ['susie', 'ralsei'] },
+    praise: { name: 'Praise', desc: 'Say nice\nthings', tp: 40 },
+    praisez: { name: 'PraiseZ', desc: 'Team\npraise', tp: 75, party: ['susie', 'ralsei'] },
     justice: { name: 'Justice', desc: 'Hold a\ntrial', tp: 100 },
-    susieidea: { name: "Susie'sIdea", desc: 'Trust\nSusie', tp: 40, party: ['susie'] },
+    susieidea: { name: "Susie'sIdea", desc: 'Trust\nSusie', tp: 60, party: ['susie'] },
   };
 })();

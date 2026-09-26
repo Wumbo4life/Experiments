@@ -323,6 +323,38 @@
   };
   V.background = function (bt, t, omega) {
     V.rooftop(t, { dusk: omega ? 1 : U.clamp(((bt.phase || 1) - 1) / 5, 0, 1), omega, fountain: {} });
+    if (bt.hard) V.redWash();
+  };
+  // HARD MODE: everything takes on the color of DETERMINATION.
+  V.redWash = function () {
+    const ctx = G.ctx;
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    G.rect(0, 0, 640, 480, '#ff9090');
+    ctx.globalCompositeOperation = 'source-over';
+    G.rect(0, 0, 640, 480, '#ff0000', 0.06 + 0.03 * Math.sin(DF.time * 5));
+    ctx.restore();
+  };
+  // FLOWERY LOADing his SAVE: a VHS-style rewind with the MERCY counting back down.
+  V.drawRewind = function (bt) {
+    const r = bt.rewind;
+    const ctx = G.ctx;
+    G.rect(0, 0, 640, 480, '#200000', 0.3);
+    for (let i = 0; i < 14; i++) {
+      const y = (i * 43 + r.t * 1400) % 480;
+      G.rect(0, Math.round(y), 640, 4 + (i % 3) * 5, '#ffffff', 0.1 + (i % 2) * 0.08);
+    }
+    ctx.fillStyle = '#ff3030';
+    for (const ox of [0, 22]) {
+      ctx.beginPath();
+      ctx.moveTo(40 + ox, 44);
+      ctx.lineTo(60 + ox, 32);
+      ctx.lineTo(60 + ox, 56);
+      ctx.fill();
+    }
+    G.text('LOAD', 94, 26, { size: 32, color: '#ff3030', outline: '#000', outlineWidth: 5 });
+    const m = Math.round(U.lerp(r.from, r.to, U.clamp(r.t, 0, 1)));
+    G.text('MERCY ' + m + '%', 604, 26, { size: 32, align: 'right', color: '#ffff00', outline: '#000', outlineWidth: 5 });
   };
   V.fountain = function (t, o) {
     fountain(t, DF.Music.kickPulse(), 1, o);
@@ -339,7 +371,7 @@
       const x = c.x + Math.cos(a) * r;
       const y = c.y + Math.sin(a) * r * 0.8;
       const k = 0.6 + pulse * 0.8 + Math.sin(t * 6 + i * 2) * 0.2;
-      G.draw(G.frameAt('fx/sparkle', t * 0.7 + i * 0.3, 10, true), x, y, { scale: 1 + k, ox: 0.5, oy: 0.5, alpha: 0.85, tint: e.rainbow ? U.rainbow(i * 3) : '#fff8c0' });
+      G.draw(G.frameAt('fx/sparkle', t * 0.7 + i * 0.3, 10, true), x, y, { scale: 1 + k, ox: 0.5, oy: 0.5, alpha: 0.85, tint: e.rainbow ? U.rainbow(i * 3) : e.determined ? '#ff3030' : '#fff8c0' });
     }
   };
 
@@ -383,6 +415,7 @@
     }
     ctx.restore();
 
+    if (bt.rewind) V.drawRewind(bt);
     V.drawUI(bt);
     V.drawTP(bt);
     if (!bt.hideKaraoke) V.drawKaraoke(bt);
@@ -413,8 +446,8 @@
     ctx.beginPath();
     ctx.rect(x, y - 4, cut, 26);
     ctx.clip();
-    let col = '#ffe040';
-    if (ly.chorus) col = U.RAINBOW[Math.floor(DF.time * 8) % U.RAINBOW.length];
+    let col = bt.hard ? '#ff4040' : '#ffe040';
+    if (ly.chorus) col = bt.hard ? (Math.floor(DF.time * 8) % 2 ? '#ff2020' : '#ffffff') : U.RAINBOW[Math.floor(DF.time * 8) % U.RAINBOW.length];
     G.text(ly.text, x, y, { size, color: col });
     ctx.restore();
     if (ly.chorus && DF.Music.kickPulse() > 0.6) G.rect(x - 8, y - 3, w + 16, 22, '#ffffff', 0.08);
@@ -544,7 +577,7 @@
       bt.enemies.forEach((e, i) => {
         const yy = 375 + i * 30;
         const on = e.selectable;
-        G.text(e.name, 80, yy, { size: 32, color: on ? '#ffffff' : '#808080' });
+        G.text(e.name, 80, yy, { size: 32, color: !on ? '#808080' : e.determined ? '#ff4040' : '#ffffff' });
         const nw = G.textWidth(e.name, 'main', 32);
         if (e.mercy >= 100) G.draw('ui/sparestar', 80 + nw + 20, yy + 10, { scale: 1 });
         if (on) {

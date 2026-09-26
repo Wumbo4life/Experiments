@@ -32,6 +32,10 @@ FLOWERY can't be beaten by FIGHTing. The first time you try, Susie and Ralsei he
 FIGHT gets locked. You win by raising his **MERCY**, and each phase needs a different ACT.
 Z-versions of an ACT use the whole team, so both Susie and Ralsei have to be standing.
 
+**Every ACT except Check costs TP**, and not a little: solo ACTs cost 40%, Z-ACTs 75%,
+Justice 100% and Susie's Idea 60%. A typical turn is one ACT while the others DEFEND (+16%
+each), then earning the rest back on his turn by grazing, parrying and breaking blue things.
+
 | Phase | Who joins | ACT | Minigame |
 | --- | --- | --- | --- |
 | 1 | FLOWERY alone | Posey / PoseyZ | Stop the marker in the middle |
@@ -39,7 +43,7 @@ Z-versions of an ACT use the whole team, so both Susie and Ralsei have to be sta
 | 3 | AQUA and SETH | Spin / SpinZ | Roll the arrow keys around a circle |
 | 4 | ORANGE and GREEN | Praise / PraiseZ | Type the compliment arrows |
 | 5 | YELLOW and BLUE | Justice (100% TP) | A very short trial |
-| 6 | FLOWERY alone (Ralsei is knocked out) | Susie'sIdea (40% TP) | Climb, face OMEGA FLOWERY on the castle roof |
+| 6 | FLOWERY alone (Ralsei is knocked out) | Susie'sIdea (60% TP) | Climb, face OMEGA FLOWERY on the castle roof |
 
 **The orange SOUL.** On enemy turns your SOUL is orange. It faces right and the board
 rushes past it: you move up and down, and holding `Z` charges a dash that fires when you
@@ -71,7 +75,29 @@ they turn blue, and jump-slash the high ones to fill the attack bar. At CRITICAL
 his LAST JARONA. Parry it and finish him. The story that follows is told with sprites and
 silhouettes, in paraphrase.
 
-If you fall, **Continue** restarts the current phase instead of the whole fight.
+If you fall, **Continue** restarts the current phase instead of the whole fight, with enough
+TP to ACT straight away.
+
+## Hard Mode
+
+Pick **HARD MODE** on the title screen. FLOWERY is red, with a stolen red SOUL beating in
+his chest: he has the power of **DETERMINATION**, and control over the SAVE FILE.
+
+- **He takes your file.** Your SAVE FILE is overwritten ("FLOWERY, LV 999") and the title
+  screen shows it until you beat him. Game over is his too.
+- **He LOADs.** When you fill his MERCY for a phase he LOADs his SAVE and takes 5% back,
+  once per phase. (In phase 5 YELLOW objects: a verdict can't be LOADed away.)
+- **He SAVEs and LOADs inside his attacks.** Once per attack a red SAVE star appears;
+  moments later he LOADs and everything on the board rewinds to that point and plays out
+  again: parried charges come back, broken bamboo is whole. The SOUL keeps its place.
+- **The climb and the run.** He LOADs you back down the climb, rewinds the rooftop attack
+  bar once, and throws a second, faster LAST JARONA after you parry the first.
+- Attacks run 25% faster and hit 50% harder.
+
+Hard Mode stays fair. The rewind also winds each attack's safe line back at a speed the
+SOUL can match, nothing can hit you during it, and he only SAVEs when nothing you must
+react to (a lily pad, a knife wall, a charging attacker) is close. The dodging bot clears
+all 18 attacks in Hard Mode, each with a LOAD, without a hit.
 
 ## Credits and licensing
 
@@ -124,4 +150,5 @@ python3 tools/build_bundle.py
 From the browser console: `DF.debug.phase(4)` jumps to a phase, `DF.debug.tp(100)` fills
 TP, `DF.debug.climb()` skips to the climb, `DF.debug.finale()` to the rooftop run,
 `DF.debug.ending()` to the ending, `DF.debug.god = true` stops damage, and
-`DF.debug.showLine = true` draws each wave's safe line.
+`DF.debug.showLine = true` draws each wave's safe line. Pass `true` as the last argument
+(`DF.debug.phase(3, true)`, `DF.debug.finale(true)`...) for Hard Mode.

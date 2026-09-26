@@ -21,6 +21,7 @@
   const canvas = document.getElementById('game');
   G.init(canvas);
   DF.loadSettings();
+  DF.loadFile();
 
   function resize() {
     const root = document.getElementById('stage');
@@ -155,22 +156,22 @@
 
   // Handy for debugging from the console: DF.debug.phase(4)
   DF.debug = {
-    phase(n) {
-      DF.setScene(new DF.Battle({ phase: n, retry: true, tp: n >= 5 ? 100 : 0, fightLocked: true }));
+    phase(n, hard) {
+      DF.setScene(new DF.Battle({ phase: n, retry: true, tp: n >= 5 ? 100 : 0, fightLocked: true, hard: !!hard }));
     },
     tp(n) {
       if (DF.scene && DF.scene.tp !== undefined) DF.scene.tp = n;
     },
-    climb() {
-      const bt = new DF.Battle({ phase: 6, retry: true, tp: 100, fightLocked: true });
+    climb(hard) {
+      const bt = new DF.Battle({ phase: 6, retry: true, tp: 100, fightLocked: true, hard: !!hard });
       DF.setScene(bt);
       bt.scripts.clear();
       bt.fade = 0;
       bt.startClimb = true;
       bt.scripts.run(DF.Cutscenes.climb(bt));
     },
-    finale() {
-      const bt = new DF.Battle({ phase: 6, retry: true, tp: 100, fightLocked: true });
+    finale(hard) {
+      const bt = new DF.Battle({ phase: 6, retry: true, tp: 100, fightLocked: true, hard: !!hard });
       DF.setScene(bt);
       bt.scripts.clear();
       bt.fade = 0;
@@ -186,12 +187,12 @@
             return;
           }
           bt.ended = true;
-          DF.setScene(new DF.EndingScene(bt.stats));
+          DF.setScene(new DF.EndingScene(bt.stats, { hard: bt.hard }));
         })()
       );
     },
-    ending() {
-      DF.setScene(new DF.EndingScene({ time: 900, turns: 24, parries: 14, perfects: 5, breaks: 11, hits: 6, tpGained: 320, retries: 0 }));
+    ending(hard) {
+      DF.setScene(new DF.EndingScene({ time: 900, turns: 24, parries: 14, perfects: 5, breaks: 11, hits: 6, tpGained: 320, retries: 0 }, { hard: !!hard }));
     },
   };
 })();

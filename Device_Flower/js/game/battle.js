@@ -56,6 +56,11 @@
       this.bgT = 0;
       this.fade = opts.retry ? 1 : 1;
       this.omega = false; // OMEGA FLOWERY only appears at the top of the climb
+      // HARD MODE: FLOWERY holds the power of DETERMINATION (and your SAVE FILE).
+      this.hard = !!opts.hard;
+      this.loads = {}; // phases where he has already LOADed
+      this.waveSpeed = this.hard ? 1.25 : 1;
+      this.rewind = null;
       this.climb = null;
       this.ended = false;
       this.gameOverFlag = false;
@@ -64,6 +69,10 @@
       this.layoutParty();
       this.placeAllies(DF.PHASES[this.phase].allies, true);
       if (this.phase === 2) this.flowery.x = 590 - (opts.blowPulls || 0) * 42;
+      if (this.hard) {
+        this.flowery.determined = true;
+        this.flowery.tint = '#ff5a5a';
+      }
       this.saveCheckpoint();
       this.scripts.run(this.mainFlow(), 'main');
     }
@@ -116,11 +125,14 @@
         items: this.items.slice(),
         hints: Object.assign({}, this.hints),
         fightLocked: this.fightLocked,
-        tp: this.phase === 5 ? 40 : this.phase === 6 ? 20 : 0,
+        hard: this.hard,
+        // Enough to ACT straight away after a retry.
+        tp: this.phase >= 5 ? 60 : 40,
       };
     }
     waveDamage() {
-      return [0, 28, 30, 32, 34, 36, 38][this.phase];
+      const d = [0, 28, 30, 32, 34, 36, 38][this.phase];
+      return this.hard ? Math.round(d * 1.5) : d;
     }
 
     // ---- main flow ---------------------------------------------------------------
@@ -136,11 +148,20 @@
         }
         const P = DF.PHASES[this.phase];
         if (this.phase < 6 && this.flowery.mercy >= P.cap) {
-          this.phase++;
-          this.phaseTurn = 0;
-          this.enemyTurns = 0;
-          yield* DF.Cutscenes['phase' + this.phase](this);
-          this.saveCheckpoint();
+          // HARD MODE: once per phase, FLOWERY LOADs his SAVE and takes the MERCY back.
+          let loaded = false;
+          if (this.hard && !this.loads[this.phase]) {
+            this.loads[this.phase] = true;
+            loaded = yield* DF.Cutscenes.determination(this);
+          }
+          if (!loaded) {
+            this.phase++;
+            this.phaseTurn = 0;
+            this.enemyTurns = 0;
+            yield* DF.Cutscenes['phase' + this.phase](this);
+            this.saveCheckpoint();
+            if (this.hard) yield* DF.Cutscenes.hardSave(this);
+          }
         }
         yield* this.enemyTalk();
         yield* this.enemyTurn();
@@ -182,7 +203,7 @@
 
     setFlavor(text) {
       const P = DF.PHASES[this.phase];
-      if (!text) text = this.nextFlavor || (this.turn === 1 && this.phaseTurn === 1 && this.phase === 1 ? '* FLOWERY blocks the way to the Fountain!' : U.choose(P.flavor));
+      if (!text) text = this.nextFlavor || (this.turn === 1 && this.phaseTurn === 1 && this.phase === 1 ? '* FLOWERY blocks the way!\n* (Every ACT but Check costs TP.\n  DEFEND and graze to earn it!)' : U.choose(P.flavor));
       this.nextFlavor = null;
       this.flavorText = text;
       this.textbox.typer = new DF.Typer(text, { x: 30, y: 378, width: 590, font: 'mono', size: 32, lineH: 32, speed: 40 });
@@ -592,6 +613,7 @@
     *enemyTalk(lines) {
       this.clearText();
       const P = DF.PHASES[this.phase];
+      if (!lines && !this.nextTalk && this.hard && this.enemyTurns % 2 === 1) lines = [U.choose(DF.HARD_TALK)];
       lines = lines || this.nextTalk || P.talk[this.enemyTurns % P.talk.length];
       this.nextTalk = null;
       yield* this.talk(lines);
@@ -836,9 +858,10 @@
         this.boxY[i] = U.approach(this.boxY[i], sel ? -32 : 0, dt * 32 * 12);
       }
       if (this.wave) {
-        this.arena.update(dt);
+        // HARD MODE runs the attacks faster; the SOUL keeps its own pace.
+        this.arena.update(dt * this.waveSpeed);
         this.soul.update(dt, this.arena);
-        this.wave.update(dt);
+        this.wave.update(dt * this.waveSpeed);
       } else if (this.soul.visible && !this.soul.locked) {
         this.soul.update(dt, this.arena);
       }

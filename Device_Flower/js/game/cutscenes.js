@@ -26,6 +26,11 @@
         DF.Music.play('battle', { section: 'chorus3' });
       } else DF.Music.play('battle', { section: bt.phase >= 3 ? 'riff' : 'intro' });
       yield* DF.tween(bt, { fade: 0 }, 0.5);
+      if (bt.hard) {
+        yield* bt.talk([{ who: 'flowery', text: 'Welcome back!\nI LOADED my SAVE\ntoo! Round two!', voice: 'vc_hah' }]);
+        bt.nextFlavor = '* FLOWERY LOADED his SAVE.\n* (Phase ' + bt.phase + ' of 6)';
+        return;
+      }
       yield* bt.talk([{ who: 'flowery', text: 'Sorry to keep you\nwaiting! Round two!', voice: 'vc_sorrytokeepyouwaiting2' }]);
       bt.nextFlavor = '* FLOWERY is back on his feet.\n* (Phase ' + bt.phase + ' of 6)';
       return;
@@ -53,6 +58,49 @@
     yield* bt.talk([{ who: 'flowery', text: 'Sorry to keep\nyou waiting!', voice: 'vc_sorrytokeepyouwaiting1' }]);
     fl.idle();
     yield* bt.talk([{ who: 'flowery', text: "Your dad's my best\nfriend, Kris! So I\ncan't let you close\nthat Fountain!", voice: 'vc_yourdadsmybestfriend' }]);
+    if (bt.hard) {
+      fl.flash = 1;
+      bt.fx.screenFlash('#ff2020', 0.5, 2);
+      Audio.play('sparkle_gem', { vol: 0.7 });
+      yield* bt.say(['* FLOWERY is filled with\n  DETERMINATION.', '* (HARD MODE: faster attacks,\n  harder hits... and he can LOAD.)']);
+    }
+  };
+
+  // ---- HARD MODE: the power of DETERMINATION -------------------------------------------
+  // At the MERCY cap FLOWERY LOADs his SAVE, once per phase. Returns true if he did.
+  C.determination = function* (bt) {
+    const fl = bt.flowery;
+    const cap = DF.PHASES[bt.phase].cap;
+    if (bt.phase === 5) {
+      // A verdict can't be LOADed away.
+      yield* bt.talk([{ who: 'flowery', text: 'Objection!\nI LOAD my SAVE\nand-', voice: 'vc_hah' }]);
+      yield* bt.talk([{ who: 'yellow', text: "Nuh-uh, pardner.\nA verdict's a\nverdict." }]);
+      yield* bt.say('* The verdict stands.\n* It could not be LOADED away.');
+      return false;
+    }
+    yield* bt.talk([{ who: 'flowery', text: U.choose(['Heh! Nice try!\nBut I SAVED right\nbefore that!', "Nope! Not today!\nI've got a SAVE\nFILE, remember?", 'Whoops! Let me\njust... LOAD!']), voice: 'vc_hah' }]);
+    Audio.play('noise', { vol: 0.5 });
+    Audio.play('wing', { vol: 0.6, pitch: 0.5 });
+    const to = cap - 5;
+    bt.rewind = { t: 0, from: fl.mercy, to };
+    yield* DF.tween(bt.rewind, { t: 1 }, 1.3, 'inOutQuad');
+    fl.mercy = to;
+    bt.rewind = null;
+    fl.flash = 1;
+    bt.fx.screenFlash('#ff2020', 0.6, 2.5);
+    bt.fx.screenShake(6);
+    Audio.play('sparkle_gem', { vol: 0.7 });
+    bt.fx.label(Math.min(fl.center().x, 580), fl.top() + 10, '-5% MERCY', '#ff4040', { size: 16, life: 1.2 });
+    yield* bt.say(['* FLOWERY LOADED his SAVE!', '* His MERCY fell back to ' + to + '%.\n* (He can only LOAD once a phase.)']);
+    return true;
+  };
+
+  // After each phase change in HARD MODE, FLOWERY SAVEs over your file.
+  C.hardSave = function* (bt) {
+    const c = bt.flowery.center();
+    Audio.play('sparkle_gem', { vol: 0.7 });
+    bt.fx.sparkles(c.x, c.y, 10, '#ff4040', 140);
+    yield* bt.say('* (FLOWERY is filled with\n  DETERMINATION.)\n* (FLOWERY SAVED the game.)');
   };
 
   // ---- allies come and go --------------------------------------------------------------
@@ -205,7 +253,7 @@
     yield* bt.talk([{ who: 'flowery', text: "I'm only trying\nto help you!\nI'll stop you, no\nmatter what!", voice: 'vc_im_only_trying_to_help_you' }]);
     yield* bt.say(["[v:voice_susie]* Susie: Kris. You and me.\n* We're closing that Fountain. Together.", '* Kris and Susie stand alone.']);
     DF.Music.jumpTo('chorus3');
-    bt.nextFlavor = "* Susie is itching to try something.\n* ([c:yellow]Susie'sIdea[/c] needs 40% TP.)";
+    bt.nextFlavor = "* Susie is itching to try something.\n* ([c:yellow]Susie'sIdea[/c] needs 60% TP.)";
   };
 
   // ---- ACTs ----------------------------------------------------------------------------
@@ -406,6 +454,6 @@
       return;
     }
     bt.ended = true;
-    DF.setScene(new DF.EndingScene(bt.stats));
+    DF.setScene(new DF.EndingScene(bt.stats, { hard: bt.hard }));
   };
 })();

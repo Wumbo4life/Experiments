@@ -170,6 +170,13 @@
       const x = Math.round(this.x + this.offX + shakeX);
       const y = Math.round(this.y + this.offY + bob);
       const tint = this.rainbow ? U.rainbow() : this.tint;
+      // HARD MODE: a red outline that throbs like a heartbeat.
+      if (this.determined && !this.rainbow) {
+        const beat = 0.3 + 0.2 * Math.max(0, Math.sin(this.t * 5));
+        for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) {
+          G.drawFill(name, x + dx, y + dy, '#ff1010', { ox: 0.5, oy: 1, flip: this.flip, alpha: this.alpha * beat, scale: this.scale, rot: this.rot });
+        }
+      }
       if (this.glow > 0) {
         const g = this.rainbow ? U.rainbow(3) : this.glowColor || '#fff';
         for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) {
@@ -180,6 +187,12 @@
         ox: 0.5, oy: 1, flip: this.flip, alpha: this.alpha, scale: this.scale, rot: this.rot,
         tint: this.rainbow ? null : tint, fill: this.rainbow ? tint : this.flashColor, fillAmt: this.rainbow ? 0.45 : this.flash,
       });
+      // The stolen red SOUL, beating in his chest.
+      if (this.determined) {
+        const s = G.size(name);
+        const beat = 1 + 0.25 * Math.max(0, Math.sin(this.t * 5));
+        G.draw('heart/heart', x, y - s.h * this.scale * 0.55, { scale: beat, ox: 0.5, oy: 0.5, tint: '#ff0000', alpha: this.alpha });
+      }
     }
   }
   DF.EnemyBattler = EnemyBattler;

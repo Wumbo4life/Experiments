@@ -222,6 +222,23 @@
       /* ignore */
     }
   };
+  // The one SAVE FILE. In HARD MODE, FLOWERY takes it over until you beat him.
+  DF.file = { owner: 'KRIS', hardClear: false, hardTries: 0 };
+  DF.loadFile = function () {
+    try {
+      const raw = window.localStorage.getItem('device_flower_file');
+      if (raw) Object.assign(DF.file, JSON.parse(raw));
+    } catch (e) {
+      /* ignore */
+    }
+  };
+  DF.saveFile = function () {
+    try {
+      window.localStorage.setItem('device_flower_file', JSON.stringify(DF.file));
+    } catch (e) {
+      /* ignore */
+    }
+  };
   DF.saveSettings = function () {
     try {
       window.localStorage.setItem('device_flower_settings', JSON.stringify(DF.settings));

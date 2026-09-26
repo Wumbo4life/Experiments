@@ -106,7 +106,7 @@
     constructor() {
       this.t = 0;
       this.sel = 0;
-      this.items = ['START', 'HOW TO PLAY', 'SETTINGS', 'CREDITS'];
+      this.items = ['START', 'HARD MODE', 'HOW TO PLAY', 'SETTINGS', 'CREDITS'];
       this.petals = new Petals(30);
       this.leaving = false;
       this.fade = 1;
@@ -128,6 +128,7 @@
         Audio.play('ui_select');
         const it = this.items[this.sel];
         if (it === 'START') this.start();
+        else if (it === 'HARD MODE') this.startHard();
         else if (it === 'HOW TO PLAY') DF.setScene(new HelpScene(this));
         else if (it === 'SETTINGS') DF.setScene(new SettingsScene(this));
         else if (it === 'CREDITS') DF.setScene(new CreditsScene(this));
@@ -137,6 +138,11 @@
       this.leaving = true;
       DF.Music.stop(0.6);
       DF.fadeTo(() => new DF.Battle({}), 0.8);
+    }
+    startHard() {
+      this.leaving = true;
+      DF.Music.stop(0.6);
+      DF.fadeTo(() => new HardIntroScene(), 0.8);
     }
     draw() {
       const ctx = G.ctx;
@@ -152,15 +158,23 @@
       for (let x = -50; x < 690; x += 50) for (let y = -50; y < 530; y += 50) G.draw('ui/bgtile', Math.round(x + off), Math.round(y + off), { scale: 1 });
       ctx.restore();
       this.petals.draw(0.6);
-      // Flowery, cape flapping.
-      G.draw(G.frameAt('flowery/idle', this.t, 8, true), 500, 400, { scale: 4, ox: 0.5, oy: 1 });
+      // Flowery, cape flapping (red, if he has your SAVE FILE).
+      const taken = DF.file.owner === 'FLOWERY';
+      G.draw(G.frameAt('flowery/idle', this.t, 8, true), 500, 400, { scale: 4, ox: 0.5, oy: 1, tint: taken ? '#ff5a5a' : null });
       drawLogo(60, this.t);
       G.text('A fan remake of the Flowery fight from DELTARUNE Chapter 5', 320, 136, { size: 16, align: 'center', color: '#e0c0e0' });
       this.items.forEach((it, i) => {
-        const y = 230 + i * 40;
-        G.text(it, 90, y, { size: 32, color: i === this.sel ? '#ffff00' : '#ffffff' });
-        if (i === this.sel) menuHeart(64, y + 9);
+        const y = 222 + i * 38;
+        const hard = it === 'HARD MODE';
+        const on = i === this.sel;
+        const jx = hard && on ? U.randInt(-1, 1) : 0;
+        G.text(it, 90 + jx, y, { size: 32, color: hard ? (on ? '#ff6060' : '#c03030') : on ? '#ffff00' : '#ffffff' });
+        if (on) menuHeart(64, y + 9);
       });
+      if (this.items[this.sel] === 'HARD MODE') G.text('FLOWERY has the power of DETERMINATION.', 90, 414, { size: 16, color: '#ff6060' });
+      // The SAVE FILE, top right.
+      const fileText = taken ? 'FILE 1: FLOWERY  LV 999' : 'FILE 1: KRIS' + (DF.file.hardClear ? '  * HARD CLEAR' : '');
+      G.text(fileText, 626 + (taken && Math.random() < 0.05 ? U.randInt(-3, 3) : 0), 10, { size: 16, align: 'right', color: taken ? '#ff4040' : DF.file.hardClear ? '#ffd020' : '#a090a0' });
       G.text('[Z] Confirm   [X] Back   [ARROWS] Move   [M] Mute', 20, 440, { size: 16, color: '#b0a0b0' });
       G.text('Fan-made. Not affiliated with Toby Fox.', 20, 458, { size: 16, color: '#806880' });
       if (this.fade > 0) G.rect(0, 0, 640, 480, '#000', this.fade);
@@ -200,9 +214,10 @@
         'FLOWERY turns [c:blue]BLUE[/c] just before impact.',
         'DASH into him right then to PARRY.',
         'The later you dash, the more TP you get.',
+        'Grazing bullets and DEFEND build TP too.',
         '',
-        'Grazing bullets also builds TP.',
-        'Some ACTs cost TP. JUSTICE needs [c:yellow]100%[/c]!',
+        'Every ACT but Check costs [c:yellow]TP[/c]:',
+        'solo 40%, Z-ACTs 75%, JUSTICE 100%.',
         'Every attack leaves a way through!',
       ],
     },
@@ -363,6 +378,115 @@
     }
   }
 
+  // ---- HARD MODE: FLOWERY takes the SAVE FILE --------------------------------------------------
+  const GLITCH = '#$%&@!?*<>/=+';
+  function scramble(from, to, k) {
+    const n = Math.max(from.length, to.length);
+    let out = '';
+    for (let i = 0; i < n; i++) {
+      if (i / n < k) out += to[i] || '';
+      else out += U.chance(0.5) ? GLITCH[U.randInt(0, GLITCH.length - 1)] : from[i] || '';
+    }
+    return out;
+  }
+  class HardIntroScene {
+    constructor() {
+      this.t = 0;
+      this.scripts = new DF.ScriptPool();
+      this.fx = new DF.FX();
+      this.box = null;
+      this.face = null;
+      const taken = DF.file.owner === 'FLOWERY';
+      this.file = taken
+        ? { name: 'FLOWERY', lv: 'LV 999', time: '99:99', place: 'MY SAVE FILE', red: true, glitch: 0 }
+        : { name: 'KRIS', lv: 'LV 1', time: '0:00', place: 'Top of Castle', red: false, glitch: 0 };
+      this.saved = 0;
+      this.scripts.run(this.flow(taken));
+    }
+    *say(pages, face) {
+      for (const p of pages) {
+        this.face = face || null;
+        this.box = new DF.Typer(p, { x: face ? 142 : 30, y: 368, width: face ? 480 : 580, font: 'mono', size: 32, lineH: 32, speed: 34, voice: 'voice_default' });
+        for (;;) {
+          yield null;
+          if (!this.box.done) {
+            if (Input.pressed('cancel')) this.box.skip();
+            continue;
+          }
+          if (Input.pressed('confirm')) break;
+        }
+      }
+      this.box = null;
+      this.face = null;
+    }
+    *flow(taken) {
+      yield 1.0;
+      if (!taken) {
+        // Letter by letter, the file becomes his.
+        Audio.play('noise', { vol: 0.5 });
+        const target = { name: 'FLOWERY', lv: 'LV 999', time: '99:99', place: 'MY SAVE FILE' };
+        for (let i = 0; i <= 14; i++) {
+          this.file.glitch = 1;
+          for (const k in target) this.file[k] = scramble(this.file[k], target[k], i / 14);
+          Audio.play('ui_move', { vol: 0.4, pitch: 0.6 + i * 0.05 });
+          yield 0.08;
+        }
+        Object.assign(this.file, target, { red: true, glitch: 0 });
+        this.fx.screenShake(8);
+        Audio.play('impact', { vol: 0.7 });
+        yield 0.8;
+      }
+      Audio.voice('vc_hah');
+      yield* this.say([taken ? "* Back for more, Kris?\n* This file's still MINE!" : '* Hey, Kris!\n* Guess what I found?'], 'face/flowery_17');
+      yield* this.say(["* The power of\n  DETERMINATION!\n* And it's ALL MINE now!"], 'face/flowery_28');
+      yield* this.say(['* Your SAVE FILE, too.\n* I SAVED right over it!'], 'face/flowery_27');
+      yield* this.say(["* So when you win...\n* I'll just LOAD!\n* Heh heh heh!"], 'face/flowery_16');
+      Audio.play('sparkle_gem', { vol: 0.8 });
+      DF.file.owner = 'FLOWERY';
+      DF.file.hardTries = (DF.file.hardTries || 0) + 1;
+      DF.saveFile();
+      this.saved = 1;
+      yield 1.8;
+      DF.fadeTo(() => new DF.Battle({ hard: true }), 0.8);
+    }
+    update(dt) {
+      this.t += dt;
+      this.fx.update(dt);
+      this.scripts.update(dt);
+      if (this.box) this.box.update(dt);
+    }
+    draw() {
+      G.rect(0, 0, 640, 480, '#000');
+      const shake = this.fx.offset();
+      const f = this.file;
+      const col = f.red ? '#ff3030' : '#ffffff';
+      const jx = shake.x + (f.glitch ? U.randInt(-3, 3) : 0);
+      const jy = shake.y;
+      // The stolen SOUL, beating behind the file.
+      if (f.red) {
+        const beat = 1 + 0.2 * Math.max(0, Math.sin(this.t * 5));
+        G.draw('heart/heart', 320, 60, { scale: 3 * beat, ox: 0.5, oy: 0.5, tint: '#ff0000' });
+      }
+      G.strokeRect(100 + jx, 104 + jy, 440, 136, col, 3);
+      G.text(f.name, 130 + jx, 122 + jy, { size: 32, color: col });
+      G.text(f.lv, 330 + jx, 122 + jy, { size: 32, color: col });
+      G.text(f.time, 512 + jx, 122 + jy, { size: 32, align: 'right', color: col });
+      G.text(f.place, 130 + jx, 162 + jy, { size: 32, color: col });
+      G.text('Continue', 170 + jx, 200 + jy, { size: 32, color: col });
+      G.text('Reset', 380 + jx, 200 + jy, { size: 32, color: f.red ? '#602020' : col });
+      if (!f.red) menuHeart(144 + jx, 209 + jy);
+      if (this.saved > 0 && Math.floor(this.t * 3) % 2 === 0) G.text('FLOWERY SAVED THE GAME.', 320, 270, { size: 32, align: 'center', color: '#ff4040' });
+      if (this.box) {
+        G.rect(16, 350, 608, 118, '#000');
+        G.strokeRect(16, 350, 608, 118, '#ff3030', 3);
+        if (this.face) G.draw(this.face, 32, 362, { scale: 2, tint: '#ff5050' });
+        this.box.draw();
+      }
+      this.fx.drawFlash();
+    }
+  }
+  DF.HardIntroScene = HardIntroScene;
+
   // ---- Game over -----------------------------------------------------------------------------
   class GameOverScene {
     constructor(checkpoint, stats) {
@@ -376,7 +500,9 @@
     update(dt) {
       this.t += dt;
       if (this.t > 2.2 && !this.text) {
-        this.text = new DF.Typer("[spd:20]Kris...! Don't give up!\nThe Fountain is right there...", { x: 90, y: 250, width: 500, font: 'mono', size: 32, voice: 'voice_susie', indent: false });
+        this.text = this.cp.hard
+          ? new DF.Typer("[spd:20][c:red]Heh heh heh...\nDon't worry, Kris. I'll\nkeep your SAVE FILE warm!", { x: 90, y: 230, width: 500, font: 'mono', size: 32, voice: 'voice_default', indent: false })
+          : new DF.Typer("[spd:20]Kris...! Don't give up!\nThe Fountain is right there...", { x: 90, y: 250, width: 500, font: 'mono', size: 32, voice: 'voice_susie', indent: false });
       }
       if (this.text) this.text.update(dt);
       if (!this.text || !this.text.done) {
@@ -392,14 +518,14 @@
         this.music.stop(0.5);
         if (this.sel === 0) {
           const cp = this.cp;
-          DF.fadeTo(() => new DF.Battle({ phase: cp.phase, retry: true, items: cp.items, hints: cp.hints, fightLocked: cp.fightLocked, tp: cp.tp, stats: this.stats }), 0.6);
+          DF.fadeTo(() => new DF.Battle({ phase: cp.phase, retry: true, items: cp.items, hints: cp.hints, fightLocked: cp.fightLocked, tp: cp.tp, stats: this.stats, hard: cp.hard }), 0.6);
         } else DF.fadeTo(() => new TitleScene(), 0.6);
       }
     }
     draw() {
       G.rect(0, 0, 640, 480, '#000');
       const a = Math.min(1, this.t / 1.5);
-      G.text('GAME OVER', 320, 90, { size: 64, align: 'center', color: '#ffffff', alpha: a });
+      G.text('GAME OVER', 320, 90, { size: 64, align: 'center', color: this.cp.hard ? '#ff3030' : '#ffffff', alpha: a });
       if (this.text) this.text.draw();
       if (this.text && this.text.done) {
         const opts = ['CONTINUE', 'GIVE UP'];
@@ -408,7 +534,8 @@
           G.text(o, x, 380, { size: 32, color: i === this.sel ? '#ffff00' : '#ffffff' });
           if (i === this.sel) menuHeart(x - 26, 389);
         });
-        G.text('(Continue restarts phase ' + this.cp.phase + ' of 6)', 320, 430, { size: 16, align: 'center', color: '#808080' });
+        const note = this.cp.hard ? '(FLOWERY LOADs you back to phase ' + this.cp.phase + ' of 6. For fun.)' : '(Continue restarts phase ' + this.cp.phase + ' of 6)';
+        G.text(note, 320, 430, { size: 16, align: 'center', color: this.cp.hard ? '#c04040' : '#808080' });
       }
     }
   }
@@ -554,8 +681,9 @@
   }
 
   class EndingScene {
-    constructor(stats) {
+    constructor(stats, opts) {
       this.stats = stats;
+      this.hard = !!(opts && opts.hard);
       this.t = 0;
       this.scripts = new DF.ScriptPool();
       this.fx = new DF.FX();
@@ -723,6 +851,7 @@
       yield* this.say(['* Wanna hear a secret?\n* I was holding back.\n  The whole time.'], 'face/flowery_34');
       yield* this.say(["* Couldn't hurt my best\n  friend's kid, right?\n* Some hero I'd be..."], 'face/flowery_29');
       yield* this.say(['* Go bring your dad home,\n  Kris.\n* With style, okay...?'], 'face/flowery_30');
+      if (this.hard) yield* this.say(["* ...Guess I can't LOAD\n  my way out of this one."], 'face/flowery_35');
       Audio.voice('vc_goodbye');
       yield* DF.tween(this.flower, { glow: 1 }, 0.8);
       for (let i = 0; i < 3; i++) {
@@ -748,6 +877,14 @@
       yield* DF.tween(this.f2, { white: 1 }, 0.8);
       this.fx.screenFlash('#ffffff', 0.7, 1.5);
       yield* DF.tween(this.f2, { grow: 0 }, 1.0, 'inCubic');
+      if (this.hard) {
+        // The SAVE FILE is Kris's again.
+        Audio.play('sparkle_gem', { vol: 0.8 });
+        DF.file.owner = 'KRIS';
+        DF.file.hardClear = true;
+        DF.saveFile();
+        yield* this.say(['* The red glow fades from the\n  SAVE FILE.', '* It belongs to Kris again.']);
+      }
       yield 1.2;
       DF.Music.play('ending');
       this.showEnd = true;
@@ -835,10 +972,11 @@
           ['HITS TAKEN', s.hits],
           ['TP GAINED', Math.round(s.tpGained) + '%'],
           ['CONTINUES', s.retries],
+          ['MODE', this.hard ? 'HARD - DETERMINATION BROKEN' : 'NORMAL'],
         ];
         rows.forEach(([k, v], i) => {
           G.text(k, 150, 190 + i * 28, { size: 16, color: '#ffd020', alpha: a });
-          G.text(String(v), 490, 190 + i * 28, { size: 16, align: 'right', color: '#ffffff', alpha: a });
+          G.text(String(v), 490, 190 + i * 28, { size: 16, align: 'right', color: k === 'MODE' && this.hard ? '#ff6060' : '#ffffff', alpha: a });
         });
         if (this.endT > 3) G.text('Thanks for playing!  [Z] Title', 320, 420, { size: 16, align: 'center', color: Math.floor(this.t * 2) % 2 ? '#ffffff' : '#ffff80' });
       }
